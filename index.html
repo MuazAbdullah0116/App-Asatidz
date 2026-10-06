@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tracker Ibadah Harian - iOS Style with Supabase</title>
+
+    <script>
+        try { if (localStorage.getItem('tracker_ibadah_theme') === 'dark') document.documentElement.classList.add('dark'); } catch(e){}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        iosBg: '#F2F2F7', iosCard: '#FFFFFF', iosBlue: '#007AFF',
+                        iosGreen: '#34C759', iosRed: '#FF3B30', iosPurple: '#AF52DE',
+                        iosOrange: '#FF9500', iosGray: '#8E8E93', iosLightGray: '#E5E5EA',
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Segoe UI"', 'Roboto', 'sans-serif'],
+                    },
+                    borderRadius: { 'ios': '18px', 'ios-sm': '12px', 'ios-lg': '24px' }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F2F2F7;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .ios-glass {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+        .ios-glass-nav {
+            background: rgba(249, 249, 249, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 0.5px solid rgba(0, 0, 0, 0.12);
+        }
+        .ios-card {
+            background-color: #FFFFFF;
+            border-radius: 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 0 1px rgba(0, 0, 0, 0.08);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+        }
+        .ios-seg-control {
+            display: flex;
+            background-color: #EFEFF4;
+            padding: 2px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 190px;
+        }
+        .ios-seg-btn {
+            flex: 1;
+            text-align: center;
+            padding: 5px 2px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 8px;
+            color: #8E8E93;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+        }
+        .ios-seg-btn.active-ya { background-color: #34C759 !important; color: #FFFFFF !important; box-shadow: 0 2px 5px rgba(52, 199, 89, 0.3); }
+        .ios-seg-btn.active-tidak { background-color: #8E8E93 !important; color: #FFFFFF !important; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); }
+        .ios-seg-btn.active-haidh { background-color: #FF3B30 !important; color: #FFFFFF !important; box-shadow: 0 2px 6px rgba(255, 59, 48, 0.35); }
+        .slide-expand {
+            max-height: 0; opacity: 0; overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease;
+        }
+        .slide-expand.expanded { max-height: 120px; opacity: 1; margin-top: 8px; }
+        .tab-content {
+            display: none; opacity: 0; transform: translateY(6px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .tab-content.active { display: block; opacity: 1; transform: translateY(0); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ================= MODE GELAP ================= */
+        .dark body { background-color: #000000 !important; color: #F2F2F7; }
+        .dark .ios-card { background-color: #1C1C1E !important; box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.06); }
+        .dark .ios-glass { background: rgba(18,18,20,0.85); border-bottom-color: rgba(255,255,255,0.08); }
+        .dark .ios-glass-nav { background: rgba(18,18,20,0.9); border-top-color: rgba(255,255,255,0.08); }
+        .dark .ios-seg-control { background-color: #2C2C2E; }
+        .dark .ios-seg-btn { color: #98989D; }
+        .dark .text-slate-900, .dark .text-black { color: #F2F2F7 !important; }
+        .dark .text-slate-800 { color: #E5E5EA !important; }
+        .dark .text-slate-700 { color: #D1D1D6 !important; }
+        .dark .text-slate-600 { color: #AEAEB2 !important; }
+        .dark .text-slate-500 { color: #98989D !important; }
+        .dark .text-slate-400 { color: #7C7C80 !important; }
+        .dark .text-iosGray { color: #98989D !important; }
+        .dark .bg-white { background-color: #1C1C1E !important; }
+        .dark .bg-slate-50 { background-color: #2C2C2E !important; }
+        .dark .bg-slate-100 { background-color: #2C2C2E !important; }
+        .dark .bg-slate-200 { background-color: #3A3A3C !important; }
+        .dark .bg-blue-50 { background-color: rgba(10,132,255,0.14) !important; }
+        .dark .bg-blue-100 { background-color: rgba(10,132,255,0.22) !important; }
+        .dark .bg-emerald-50 { background-color: rgba(48,209,88,0.14) !important; }
+        .dark .bg-emerald-100 { background-color: rgba(48,209,88,0.22) !important; }
+        .dark .bg-amber-50 { background-color: rgba(255,159,10,0.14) !important; }
+        .dark .bg-amber-100 { background-color: rgba(255,159,10,0.22) !important; }
+        .dark .bg-purple-50 { background-color: rgba(191,90,242,0.14) !important; }
+        .dark .bg-purple-100 { background-color: rgba(191,90,242,0.25) !important; }
+        .dark .bg-rose-50 { background-color: rgba(255,69,58,0.14) !important; }
+        .dark .bg-rose-100 { background-color: rgba(255,69,58,0.22) !important; }
+        .dark .bg-purple-50\/70 { background-color: rgba(191,90,242,0.12) !important; }
+        .dark .bg-amber-400 { background-color: #FFB340 !important; }
+        .dark .border-slate-100, .dark .border-slate-200 { border-color: #3A3A3C !important; }
+        .dark .border-slate-200\/60, .dark .border-slate-200\/70 { border-color: rgba(58,58,60,0.8) !important; }
+        .dark .border-purple-100 { border-color: rgba(191,90,242,0.3) !important; }
+        .dark .border-purple-200 { border-color: rgba(191,90,242,0.4) !important; }
+        .dark .border-blue-200 { border-color: rgba(10,132,255,0.35) !important; }
+        .dark .border-amber-200 { border-color: rgba(255,159,10,0.35) !important; }
+        .dark .border-emerald-200 { border-color: rgba(48,209,88,0.35) !important; }
+        .dark .border-rose-100 { border-color: rgba(255,69,58,0.3) !important; }
+        .dark .border-iosBlue { border-color: #0A84FF !important; }
+        .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #3A3A3C !important; }
+        .dark .text-iosBlue { color: #0A84FF !important; }
+        .dark .text-iosGreen { color: #30D158 !important; }
+        .dark .text-iosRed { color: #FF453A !important; }
+        .dark .text-iosPurple { color: #BF5AF2 !important; }
+        .dark .bg-iosBlue { background-color: #0A84FF !important; }
+        .dark .bg-iosPurple { background-color: #BF5AF2 !important; }
+        .dark .bg-iosGreen { background-color: #30D158 !important; }
+        .dark .bg-iosRed { background-color: #FF453A !important; }
+        .dark .text-emerald-600, .dark .text-emerald-700 { color: #30D158 !important; }
+        .dark .text-rose-500, .dark .text-rose-600, .dark .text-rose-700 { color: #FF6961 !important; }
+        .dark .text-amber-500, .dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800 { color: #FFB340 !important; }
+        .dark .text-purple-900 { color: #E5C0FF !important; }
+        .dark .text-blue-700 { color: #64B5FF !important; }
+        .dark select, .dark input, .dark textarea { color-scheme: dark; }
+    </style>
+</head>
+<body class="bg-iosBg text-slate-900 pb-28 antialiased min-h-screen">
+
+    <!-- TOP STICKY HEADER -->
+    <header class="sticky top-0 z-40 ios-glass px-4 pt-10 pb-3">
+        <div class="max-w-md mx-auto">
+            <div class="flex justify-between items-end">
+                <div>
+                    <div class="flex items-center space-x-1.5">
+                        <p id="header-date" class="text-xs font-semibold uppercase tracking-wider text-iosGray">SENIN, 5 OKTOBER</p>
+                        <span id="badge-hari-khusus" class="hidden text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                            <i class="fa-solid fa-star text-[9px] mr-0.5"></i> SENIN/KAMIS
+                        </span>
+                    </div>
+                    <h1 id="header-title" class="text-2xl font-bold tracking-tight text-black mt-0.5">Beranda Ibadah</h1>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button type="button" onclick="openConfigModal()" id="btn-supabase-status" class="flex items-center space-x-1 bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full text-xs font-bold shadow-xs">
+                        <i class="fa-solid fa-cloud text-slate-500 text-[10px]" id="icon-db-status"></i>
+                        <span id="text-db-status">Offline</span>
+                    </button>
+
+                    <div class="flex items-center space-x-1 bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">
+                        <i class="fa-solid fa-fire text-amber-500"></i>
+                        <span id="streak-counter">0 Hari</span>
+                    </div>
+
+                    <button type="button" onclick="toggleDarkMode()" id="btn-theme" class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 text-xs hover:bg-slate-300 transition">
+                        <i id="icon-theme" class="fa-solid fa-moon"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('profil')" class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 text-xs font-bold hover:bg-slate-300 transition">
+                        <i id="header-gender-icon" class="fa-solid fa-venus text-rose-500"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- iOS TOAST NOTIFICATION -->
+    <div id="ios-toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-[60] bg-black/80 text-white backdrop-blur-md px-4 py-2.5 rounded-full text-xs font-medium shadow-2xl flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none translate-y-2">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-iosGreen text-sm"></i>
+        <span id="toast-message">Catatan ibadah berhasil disimpan!</span>
+    </div>
+
+    <!-- MAIN SPA CONTENT -->
+    <main class="max-w-md mx-auto px-4 pt-4 space-y-4">
+
+        <!-- TAB 1: BERANDA -->
+        <section id="tab-beranda" class="tab-content active space-y-4">
+
+            <div id="puasa-card" class="ios-card p-4 space-y-2.5 relative overflow-hidden border-l-4 border-iosBlue transition-all">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 text-iosBlue flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-utensils text-xs"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-900">Puasa Sunnah</h3>
+                            <p class="text-[11px] text-iosGray">Puasa Sunnah Hari Senin / Kamis</p>
+                        </div>
+                    </div>
+                    <span class="text-[10px] bg-blue-50 text-iosBlue font-bold px-2 py-0.5 rounded-md border border-blue-200">SUNNAH</span>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t border-slate-100">
+                    <span class="text-xs font-semibold text-slate-700">Status Puasa Hari Ini</span>
+                    <div id="seg-puasa" class="ios-seg-control"></div>
+                </div>
+            </div>
+
+            <div class="ios-card p-4 space-y-3">
+                <div class="flex justify-between items-center mb-1">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 text-iosGreen flex items-center justify-center">
+                            <i class="fa-solid fa-kaaba text-xs"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-900">Sholat Wajib (5 Waktu)</h3>
+                            <p class="text-[11px] text-iosGray">Ya = tepat waktu & berjamaah</p>
+                        </div>
+                    </div>
+                    <span id="sholat-wajib-badge" class="text-xs font-bold text-iosGreen bg-emerald-50 px-2.5 py-0.5 rounded-full">0/5 Terisi</span>
+                </div>
+
+                <div class="divide-y divide-slate-100 text-xs">
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-cloud-sun text-amber-500 w-4 text-center"></i>
+                            <span class="font-medium text-slate-800">Subuh</span>
+                        </div>
+                        <div id="seg-sholat-subuh" class="ios-seg-control"></div>
+                    </div>
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-sun text-amber-500 w-4 text-center"></i>
+                            <span class="font-medium text-slate-800">Dzuhur</span>
+                        </div>
+                        <div id="seg-sholat-dzuhur" class="ios-seg-control"></div>
+                    </div>
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-sun-plant-wilt text-amber-600 w-4 text-center"></i>
+                            <span class="font-medium text-slate-800">Ashar</span>
+                        </div>
+                        <div id="seg-sholat-ashar" class="ios-seg-control"></div>
+                    </div>
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-moon text-indigo-500 w-4 text-center"></i>
+                            <span class="font-medium text-slate-800">Maghrib</span>
+                        </div>
+                        <div id="seg-sholat-maghrib" class="ios-seg-control"></div>
+                    </div>
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-star-and-crescent text-slate-700 w-4 text-center"></i>
+                            <span class="font-medium text-slate-800">Isya</span>
+                        </div>
+                        <div id="seg-sholat-isya" class="ios-seg-control"></div>
+                    </div>
+                </div>
+
+                <p class="text-[10px] text-iosGray bg-slate-50 p-2 rounded-ios-sm border border-slate-200/60 leading-relaxed">
+                    <i class="fa-solid fa-circle-info mr-1 text-iosGreen"></i>
+                    <strong>Ya</strong> = tepat waktu &amp; berjamaah · <strong>Tidak</strong> = tidak berjamaah / sholat sendiri (termasuk telat)<span id="legend-haidh-note"> · <strong>Haidh</strong> = masa haidh (khusus Akhwat)</span>
+                </p>
+            </div>
+
+            <div class="ios-card p-4 space-y-3">
+                <div class="flex items-center space-x-2.5 mb-1">
+                    <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <i class="fa-solid fa-hands-praying text-xs"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-900">Sholat Sunnah</h3>
+                        <p class="text-[11px] text-iosGray">Tahajud & Dhuha · cukup Ya / Tidak</p>
+                    </div>
+                </div>
+                <div class="divide-y divide-slate-100 text-xs">
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div>
+                            <span class="font-medium text-slate-800 block">Sholat Tahajud</span>
+                            <span class="text-[10px] text-iosGray">Sepertiga malam</span>
+                        </div>
+                        <div id="seg-sunnah-tahajud" class="ios-seg-control"></div>
+                    </div>
+                    <div class="py-2.5 flex justify-between items-center">
+                        <div>
+                            <span class="font-medium text-slate-800 block">Sholat Dhuha</span>
+                            <span class="text-[10px] text-iosGray">Pagi hari</span>
+                        </div>
+                        <div id="seg-sunnah-dhuha" class="ios-seg-control"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TILAWAH CARD -->
+            <div class="ios-card p-4 space-y-3">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-8 h-8 rounded-full bg-purple-100 text-iosPurple flex items-center justify-center">
+                            <i class="fa-solid fa-book-quran text-xs"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-900">Tilawah Al-Qur'an</h3>
+                            <p class="text-[11px] text-iosGray">10 Lembar = 1 Juz · Khatam = 30 Juz penuh</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-ios-sm border border-slate-200/70">
+                        <label for="select-juz" class="font-semibold text-slate-700">Juz Yang Sedang Dibaca</label>
+                        <select id="select-juz" class="bg-white border border-slate-200 text-slate-800 font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-iosPurple shadow-xs" onchange="updateFormStateFromUI()"></select>
+                    </div>
+
+                    <div id="container-tilawah-progress" class="bg-purple-50/70 p-3 rounded-ios-sm border border-purple-100 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold text-purple-900 text-[11px]">Progres Juz <span id="progress-juz-num">-</span></span>
+                            <span id="progress-juz-text" class="text-[11px] font-bold text-iosPurple">0/10 Lembar</span>
+                        </div>
+                        <div class="h-2 bg-purple-100 rounded-full overflow-hidden">
+                            <div id="progress-juz-bar" class="h-full bg-iosPurple rounded-full transition-all duration-300" style="width:0%"></div>
+                        </div>
+                        <p id="progress-juz-info" class="text-[10px] text-purple-700 flex items-center">
+                            <i class="fa-solid fa-circle-info mr-1"></i> Belum ada riwayat baca. Mulai isi hari ini!
+                        </p>
+
+                        <div class="pt-1 border-t border-purple-100">
+                            <div class="flex justify-between items-center mb-1.5 mt-1">
+                                <span class="font-semibold text-purple-900 text-[11px]">Peta Khatam 30 Juz</span>
+                                <span id="khatam-overall" class="text-[10px] font-bold text-iosPurple">0/30 Juz</span>
+                            </div>
+                            <div id="juz-grid" class="grid grid-cols-10 gap-1"></div>
+                            <p id="khatam-overall-sub" class="text-[10px] text-purple-700 mt-1.5">
+                                <i class="fa-solid fa-circle-info mr-1"></i> Khatam penuh tercapai saat Juz 1–30 semua selesai.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between py-1">
+                        <div>
+                            <p class="font-medium text-slate-800">Membaca 1 Juz Penuh Hari Ini?</p>
+                            <p class="text-[10px] text-iosGray">Otomatis mencatat 10 lembar (1 Juz penuh)</p>
+                        </div>
+                        <button type="button" id="btn-toggle-fulljuz" onclick="toggleFullJuz()" class="w-12 h-7 bg-slate-200 rounded-full p-0.5 transition-colors duration-200 relative">
+                            <div id="toggle-knob" class="w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-200 translate-x-0"></div>
+                        </button>
+                    </div>
+
+                    <div id="container-lembar-input" class="slide-expand">
+                        <div class="flex justify-between items-center bg-purple-50/70 p-2.5 rounded-ios-sm border border-purple-100">
+                            <label for="input-lembar" class="font-semibold text-purple-900">Lembar Dibaca Hari Ini</label>
+                            <div class="flex items-center space-x-1.5">
+                                <input type="number" id="input-lembar" min="0" max="10" value="0" class="w-16 bg-white border border-purple-200 rounded-lg py-1 px-2 text-center font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosPurple" oninput="updateFormStateFromUI()">
+                                <span class="font-medium text-slate-600">Lembar</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p id="tilawah-preview" class="text-[10px] text-iosGray flex items-center">
+                        <i class="fa-solid fa-calculator mr-1 text-iosPurple"></i> Isi lembar hari ini untuk melihat kalkulasi.
+                    </p>
+                </div>
+            </div>
+
+            <!-- KARTU AUTO-SAVE (pengganti tombol simpan) -->
+            <div id="autosave-card" class="ios-card p-3.5 flex items-center justify-between">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 text-iosGreen flex items-center justify-center">
+                        <i class="fa-solid fa-rotate text-xs"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-slate-800">Auto-Save Aktif</p>
+                        <p id="autosave-status" class="text-[10px] text-iosGray">Setiap perubahan langsung tersimpan di perangkat</p>
+                    </div>
+                </div>
+                <span id="autosave-dot" class="w-2.5 h-2.5 bg-iosGreen rounded-full"></span>
+            </div>
+
+            <div id="lock-banner" class="hidden ios-card p-3.5 flex items-center space-x-2.5 border-l-4 border-iosRed">
+                <i class="fa-solid fa-lock text-iosRed"></i>
+                <div>
+                    <p class="text-xs font-bold text-slate-800">Data hari ini terkirim & terkunci</p>
+                    <p class="text-[10px] text-iosGray">Terkirim otomatis pukul 20:00. Tidak bisa diubah lagi.</p>
+                </div>
+            </div>
+
+            <p class="text-[10px] text-iosGray text-center flex items-center justify-center px-2">
+                <i class="fa-solid fa-clock mr-1 text-iosBlue"></i> Data terkirim otomatis ke server &amp; terkunci pukul 20:00
+            </p>
+        </section>
+
+        <!-- TAB 2: REKAP -->
+        <section id="tab-rekap" class="tab-content space-y-4">
+            <div class="ios-seg-control p-1 max-w-none w-full bg-slate-200">
+                <button type="button" id="btn-rekap-mingguan" onclick="switchRekapSubTab('mingguan')" class="ios-seg-btn active-ya">Mingguan</button>
+                <button type="button" id="btn-rekap-bulanan" onclick="switchRekapSubTab('bulanan')" class="ios-seg-btn">Bulanan</button>
+            </div>
+
+            <div id="rekap-view-mingguan" class="space-y-4">
+                <div class="ios-card p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-900">Grafik Sholat 7 Hari Terakhir</h3>
+                            <p class="text-[11px] text-iosGray">Sholat tepat waktu & berjamaah per hari</p>
+                        </div>
+                        <span id="rekap-completion-badge" class="text-xs font-bold text-iosGreen bg-emerald-50 px-2.5 py-0.5 rounded-full">0% Selesai</span>
+                    </div>
+
+                    <div id="weekly-chart-container" class="h-32 grid grid-cols-7 gap-2 pt-4 border-t border-slate-100 items-end"></div>
+
+                    <div class="flex items-center justify-around text-[10px] text-slate-600 pt-2 border-t border-slate-100">
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2.5 h-2.5 bg-iosGreen rounded-xs"></div><span>Lengkap (4-5)</span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2.5 h-2.5 bg-amber-400 rounded-xs"></div><span>Sebagian (1-3)</span>
+                        </div>
+                        <div id="legend-haidh" class="flex items-center space-x-1">
+                            <div class="w-2.5 h-2.5 bg-iosRed rounded-xs"></div><span>Haidh</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="ios-card p-3.5 space-y-1">
+                        <div class="flex items-center space-x-2 text-iosBlue">
+                            <i class="fa-solid fa-kaaba text-xs"></i><span class="text-xs font-bold">Total Sholat</span>
+                        </div>
+                        <p id="summary-sholat-count" class="text-lg font-extrabold text-slate-900">0 / 35</p>
+                        <p id="summary-sholat-percent" class="text-[10px] text-iosGray">0% Terpenuhi</p>
+                    </div>
+                    <div class="ios-card p-3.5 space-y-1">
+                        <div class="flex items-center space-x-2 text-iosPurple">
+                            <i class="fa-solid fa-book-quran text-xs"></i><span class="text-xs font-bold">Tilawah</span>
+                        </div>
+                        <p id="summary-tilawah-lembar" class="text-lg font-extrabold text-slate-900">0 Lembar</p>
+                        <p id="summary-tilawah-juz" class="text-[10px] text-iosGray">Juz selesai: 0/30</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="rekap-view-bulanan" class="hidden space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="ios-card p-3.5 space-y-1">
+                        <span class="text-xs font-bold text-iosBlue block">Puasa Sunnah</span>
+                        <p id="monthly-puasa-val" class="text-xl font-extrabold text-slate-900">0 Hari</p>
+                    </div>
+                    <div id="card-monthly-haidh" class="ios-card p-3.5 space-y-1">
+                        <span class="text-xs font-bold text-rose-500 block">Masa Haidh</span>
+                        <p id="monthly-haidh-val" class="text-xl font-extrabold text-slate-900">0 Hari</p>
+                    </div>
+                    <div class="ios-card p-3.5 space-y-1">
+                        <span class="text-xs font-bold text-amber-500 block">Sholat Sunnah</span>
+                        <p id="monthly-sunnah-val" class="text-xl font-extrabold text-slate-900">0 Kali</p>
+                    </div>
+                    <div class="ios-card p-3.5 space-y-1">
+                        <span class="text-xs font-bold text-iosPurple block">Progres Khatam</span>
+                        <p id="monthly-tilawah-val" class="text-xl font-extrabold text-slate-900">0/30 Juz</p>
+                        <p id="monthly-tilawah-sub" class="text-[10px] text-iosGray">Khatam penuh: 0×</p>
+                    </div>
+                </div>
+
+                <div id="card-haidh-monitor" class="ios-card p-4 space-y-3 hidden">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center">
+                            <i class="fa-solid fa-droplet text-xs"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-900">Monitor Haidh</h3>
+                            <p class="text-[11px] text-iosGray">Pantau jumlah & tanggal hari haidh</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-rose-50 p-3 rounded-ios-sm border border-rose-100">
+                            <span class="text-[10px] font-bold text-rose-700 block">Bulan Ini</span>
+                            <p id="haidh-this-month" class="text-xl font-extrabold text-slate-900">0 Hari</p>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-ios-sm border border-slate-200/70">
+                            <span class="text-[10px] font-bold text-slate-600 block">Bulan Lalu</span>
+                            <p id="haidh-last-month" class="text-xl font-extrabold text-slate-900">0 Hari</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-700 mb-1.5">Tanggal Haidh Bulan Ini</p>
+                        <div id="haidh-dates-list" class="flex flex-wrap gap-1.5">
+                            <span class="text-[10px] text-iosGray">Belum ada catatan haidh bulan ini.</span>
+                        </div>
+                    </div>
+
+                    <p id="haidh-monitor-info" class="text-[10px] text-iosGray border-t border-slate-100 pt-2">
+                        <i class="fa-solid fa-circle-info mr-1"></i> Ditandai otomatis dari status "Haidh" yang diisi pada item puasa/sholat.
+                    </p>
+                </div>
+
+                <div class="ios-card p-4 space-y-3">
+                    <h3 class="font-bold text-sm text-slate-900">Riwayat Catatan Harian</h3>
+                    <div id="history-log-list" class="divide-y divide-slate-100 text-xs"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: PERINGKAT -->
+        <section id="tab-peringkat" class="tab-content space-y-4">
+            <div class="ios-card p-4 space-y-2">
+                <h2 class="font-bold text-slate-900 text-sm">Papan Peringkat Jamaah</h2>
+                <p class="text-[11px] text-iosGray">Sholat wajib dieksklusikan. Berlomba-lomba dalam kebaikan (Fastabiqul Khairat) untuk amalan sunnah dan tilawah.</p>
+            </div>
+
+            <div class="ios-seg-control p-1 max-w-none w-full bg-slate-200">
+                <button type="button" id="btn-rank-minggu" onclick="setRankTimeframe('minggu')" class="ios-seg-btn active-ya">Minggu Ini</button>
+                <button type="button" id="btn-rank-bulan" onclick="setRankTimeframe('bulan')" class="ios-seg-btn">Bulan Ini</button>
+            </div>
+
+            <div class="flex overflow-x-auto space-x-2 pb-1 hide-scrollbar -mx-4 px-4">
+                <button onclick="setRankCategory('tahajud')" id="pill-tahajud" class="rank-pill whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-iosBlue text-white shadow-sm transition">Tahajud</button>
+                <button onclick="setRankCategory('dhuha')" id="pill-dhuha" class="rank-pill whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 transition">Dhuha</button>
+                <button onclick="setRankCategory('tilawah')" id="pill-tilawah" class="rank-pill whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 transition">Tilawah (Juz)</button>
+                <button onclick="setRankCategory('puasa')" id="pill-puasa" class="rank-pill whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 transition">Puasa Sunnah</button>
+            </div>
+
+            <div class="ios-card overflow-hidden">
+                <div id="leaderboard-container" class="divide-y divide-slate-100"></div>
+            </div>
+        </section>
+
+        <!-- TAB 4: ADMIN -->
+        <section id="tab-admin" class="tab-content space-y-4">
+            <div class="ios-card p-4 space-y-3">
+                <div class="flex items-center space-x-2 text-iosBlue">
+                    <i class="fa-solid fa-user-plus text-base"></i>
+                    <h2 class="text-sm font-bold text-slate-900">Daftarkan Jamaah Baru</h2>
+                </div>
+                <form id="form-admin-add-user" onsubmit="handleAdminCreateUser(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Username Jamaah</label>
+                        <input type="text" id="admin-new-username" required placeholder="contoh: ahmad12" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-iosBlue">
+                        <p class="text-[10px] text-iosGray mt-1">Password default otomatis set ke: <code class="bg-slate-100 px-1 py-0.5 rounded text-slate-700 font-bold">1234</code></p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Jenis Kelamin</label>
+                            <select id="admin-new-gender" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800">
+                                <option value="female">Akhwat (Perempuan)</option>
+                                <option value="male">Ikhwan (Laki-laki)</option>
+                            </select>
+                            <p class="text-[10px] text-iosGray mt-1">Menentukan mode aplikasi akun ini</p>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Role/Peran</label>
+                            <select id="admin-new-role" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800">
+                                <option value="jamaah">Jamaah</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-admin-submit-user" class="w-full bg-iosBlue hover:bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg transition shadow-md flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Buat Akun Jamaah</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- REKAP DETAIL JAMAAH -->
+            <div class="ios-card p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2 text-iosPurple">
+                        <i class="fa-solid fa-chart-line text-base"></i>
+                        <h3 class="text-sm font-bold text-slate-900">Rekap Detail Jamaah</h3>
+                    </div>
+                    <button type="button" onclick="loadAdminMemberRecap()" class="text-xs text-iosBlue font-semibold flex items-center space-x-1">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+                <p class="text-[11px] text-iosGray">Pilih jamaah untuk melihat rekap ibadah lengkapnya: sholat, puasa, tilawah, khatam, dan haidh.</p>
+
+                <select id="admin-member-select" onchange="loadAdminMemberRecap()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-iosPurple">
+                    <option value="">— Pilih jamaah —</option>
+                </select>
+
+                <div id="admin-member-recap-detail"></div>
+            </div>
+
+            <!-- DAFTAR JAMAAH -->
+            <div class="ios-card p-4 space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-slate-900">Rekap Data Seluruh Jamaah</h3>
+                    <button type="button" onclick="loadAdminJamaahRecap()" class="text-xs text-iosBlue font-semibold flex items-center space-x-1">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-[11px] border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+                                <th class="p-2">Username</th>
+                                <th class="p-2">Gender</th>
+                                <th class="p-2">Role</th>
+                                <th class="p-2 text-center">Status</th>
+                                <th class="p-2 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-jamaah-table-body" class="divide-y divide-slate-100">
+                            <tr><td colspan="5" class="p-3 text-center text-iosGray">Memuat data jamaah...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: PROFIL -->
+        <section id="tab-profil" class="tab-content space-y-4">
+            <div class="ios-card p-4 flex items-center justify-between">
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-iosBlue to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-md">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div>
+                        <h2 id="profile-display-name" class="text-base font-bold text-slate-900">Tamu (Belum Login)</h2>
+                        <p class="text-xs text-iosGray">Status: <span id="profile-status-text" class="text-amber-600 font-semibold">Mode Lokal</span></p>
+                        <div class="mt-1 flex items-center space-x-1.5">
+                            <span id="badge-gender-profile" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Akhwat (Perempuan)</span>
+                            <span id="badge-role-profile" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">Admin</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="auth-button-container">
+                    <button type="button" onclick="openLoginModal()" class="bg-iosBlue text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm">
+                        Login
+                    </button>
+                </div>
+            </div>
+
+            <div class="ios-card p-4 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-iosBlue text-base"></i>
+                        <h3 class="font-bold text-sm text-slate-900">Sinkronisasi Otomatis</h3>
+                    </div>
+                    <span id="badge-locked-today" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100">
+                        <i class="fa-solid fa-lock mr-0.5"></i> HARI INI TERKUNCI
+                    </span>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Catatan tersimpan otomatis di perangkat setiap kali diisi, lalu <strong>terkirim ke server pukul 20:00</strong> dan <strong>terkunci</strong> (tidak bisa diubah).
+                </p>
+                <div class="text-xs space-y-1.5 border-t border-slate-100 pt-2">
+                    <div class="flex justify-between"><span class="text-iosGray">Terakhir sinkron</span><span id="sync-last" class="font-bold text-slate-700">Belum pernah</span></div>
+                    <div class="flex justify-between"><span class="text-iosGray">Menunggu terkirim</span><span id="sync-pending" class="font-bold text-slate-700">0 hari</span></div>
+                </div>
+                <button type="button" onclick="manualSync()" class="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-lg hover:bg-slate-200 transition">
+                    <i class="fa-solid fa-paper-plane mr-1"></i> Sinkron & Kunci Sekarang
+                </button>
+            </div>
+
+            <div class="ios-card p-4 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-scroll text-iosPurple text-base"></i>
+                        <h3 class="font-bold text-sm text-slate-900">Peraturan Aplikasi</h3>
+                    </div>
+                    <span id="badge-rules-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">BELUM DIPAHAMI</span>
+                </div>
+                <p class="text-xs text-slate-600">Peraturan penggunaan tracker ibadah — wajib dibaca & dipahami setiap jamaah.</p>
+                <button type="button" onclick="openRulesModal(true)" class="w-full bg-purple-50 border border-purple-100 text-iosPurple text-xs font-bold py-2.5 rounded-lg hover:bg-purple-100 transition">
+                    <i class="fa-solid fa-book-open mr-1"></i> Baca Peraturan
+                </button>
+            </div>
+
+            <div class="ios-card p-4 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i id="profile-theme-icon" class="fa-solid fa-circle-half-stroke text-iosBlue text-base"></i>
+                        <h3 class="font-bold text-sm text-slate-900">Mode Tampilan</h3>
+                    </div>
+                    <button type="button" onclick="toggleDarkMode()" id="btn-theme-profile" class="bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-lg transition">
+                        <i class="fa-solid fa-moon mr-1" id="icon-theme-profile"></i><span id="text-theme-profile">Mode Gelap</span>
+                    </button>
+                </div>
+                <p class="text-[10px] text-iosGray">
+                    <i class="fa-solid fa-circle-info mr-1"></i> Pilihan mode tersimpan di perangkat ini dan tidak memengaruhi perangkat lain.
+                </p>
+            </div>
+
+            <div class="ios-card p-4 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-slate-900">Mode Aplikasi Akun Ini</h3>
+                    <i id="account-gender-icon" class="fa-solid fa-venus text-rose-500 text-lg"></i>
+                </div>
+                <p id="account-gender-desc" class="text-xs text-slate-600 leading-relaxed">
+                    Login untuk melihat mode akun Anda.
+                </p>
+                <p class="text-[10px] text-iosGray border-t border-slate-100 pt-2">
+                    <i class="fa-solid fa-circle-info mr-1"></i> Mode ditentukan dari data akun yang didaftarkan admin dan tidak bisa diubah manual.
+                </p>
+            </div>
+
+            <div class="ios-card p-4 space-y-2.5 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-database text-iosBlue text-base"></i>
+                        <h3 class="font-bold text-sm">Pengaturan Database Supabase</h3>
+                    </div>
+                    <span id="badge-supabase-connected" class="text-[9px] bg-slate-500/30 text-slate-300 font-bold px-2 py-0.5 rounded-full border border-slate-400/30">OFFLINE</span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Kredensial bawaan sudah tertanam di aplikasi. Gunakan menu ini hanya jika ingin mengganti koneksi ke project Supabase lain.
+                </p>
+                <div class="pt-1 flex items-center space-x-2">
+                    <button type="button" onclick="openConfigModal()" class="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg border border-white/10 text-center transition">
+                        <i class="fa-solid fa-sliders mr-1"></i> Konfigurasi API Keys
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- BOTTOM NAV -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 ios-glass-nav pb-6 pt-2">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button type="button" onclick="switchTab('beranda')" id="nav-beranda" class="flex flex-col items-center space-y-0.5 text-iosBlue transition-colors">
+                <i class="fa-solid fa-calendar-check text-lg"></i>
+                <span class="text-[10px] font-semibold tracking-tight">Beranda</span>
+            </button>
+            <button type="button" onclick="switchTab('rekap')" id="nav-rekap" class="flex flex-col items-center space-y-0.5 text-iosGray hover:text-slate-800 transition-colors">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[10px] font-semibold tracking-tight">Rekap</span>
+            </button>
+            <button type="button" onclick="switchTab('peringkat')" id="nav-peringkat" class="flex flex-col items-center space-y-0.5 text-iosGray hover:text-slate-800 transition-colors">
+                <i class="fa-solid fa-trophy text-lg"></i>
+                <span class="text-[10px] font-semibold tracking-tight">Peringkat</span>
+            </button>
+            <button type="button" onclick="switchTab('admin')" id="nav-admin" class="hidden flex flex-col items-center space-y-0.5 text-iosGray hover:text-slate-800 transition-colors">
+                <i class="fa-solid fa-user-shield text-lg"></i>
+                <span class="text-[10px] font-semibold tracking-tight">Admin</span>
+            </button>
+            <button type="button" onclick="switchTab('profil')" id="nav-profil" class="flex flex-col items-center space-y-0.5 text-iosGray hover:text-slate-800 transition-colors">
+                <i class="fa-solid fa-gear text-lg"></i>
+                <span class="text-[10px] font-semibold tracking-tight">Pengaturan</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODAL 1: LOGIN / SETUP ADMIN -->
+    <div id="modal-login" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-ios max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
+
+            <div id="login-form-section" class="space-y-4">
+                <div class="text-center space-y-1 border-b border-slate-100 pb-3">
+                    <div class="w-12 h-12 bg-blue-100 text-iosBlue rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900">Login Jamaah</h3>
+                    <p class="text-xs text-slate-500">Silakan login untuk menggunakan aplikasi</p>
+                </div>
+
+                <form onsubmit="handleLoginSubmit(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Username</label>
+                        <input type="text" id="login-username" required autocomplete="off" placeholder="username saja, tanpa @" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosBlue">
+                        <p class="text-[10px] text-iosGray mt-1"><i class="fa-solid fa-circle-info mr-0.5"></i> Cukup ketik username saja — tanpa @ / email.</p>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosBlue">
+                    </div>
+
+                    <div id="login-error-msg" class="text-rose-500 font-medium hidden"></div>
+
+                    <button type="submit" id="btn-login-submit" class="w-full bg-iosBlue hover:bg-blue-600 text-white font-bold py-3 rounded-ios shadow-lg shadow-blue-500/20 active:scale-[0.98] transition">
+                        Masuk Sekarang
+                    </button>
+
+                    <div class="flex justify-between items-center pt-1">
+                        <button type="button" onclick="toggleAuthView('setup')" class="text-[10px] text-iosBlue font-semibold">
+                            <i class="fa-solid fa-user-plus mr-0.5"></i> Setup Admin Pertama
+                        </button>
+                        <button type="button" onclick="openConfigModal()" class="text-[10px] text-slate-400 hover:text-slate-600 font-semibold">
+                            <i class="fa-solid fa-sliders mr-0.5"></i> Konfigurasi
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="setup-admin-section" class="space-y-4 hidden">
+                <div class="text-center space-y-1 border-b border-slate-100 pb-3">
+                    <div class="w-12 h-12 bg-purple-100 text-iosPurple rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900">Setup Admin Pertama</h3>
+                    <p class="text-xs text-slate-500">Belum ada admin terdaftar. Buat akun admin untuk memulai.</p>
+                </div>
+
+                <form onsubmit="handleSetupAdmin(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Username Admin</label>
+                        <input type="text" id="setup-username" required autocomplete="off" value="admin" placeholder="contoh: admin" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosPurple">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Password Admin</label>
+                        <input type="text" id="setup-password" required value="1234" placeholder="Password awal" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosPurple">
+                        <p class="text-[10px] text-iosGray mt-1">Anda akan diminta mengganti password ini saat login pertama.</p>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jenis Kelamin Admin</label>
+                        <select id="setup-gender" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800">
+                            <option value="female">Akhwat (Perempuan)</option>
+                            <option value="male">Ikhwan (Laki-laki)</option>
+                        </select>
+                    </div>
+
+                    <div id="setup-error-msg" class="text-rose-500 font-medium hidden"></div>
+
+                    <button type="submit" id="btn-setup-admin" class="w-full bg-iosPurple hover:bg-purple-700 text-white font-bold py-3 rounded-ios shadow-lg shadow-purple-500/20 active:scale-[0.98] transition">
+                        <i class="fa-solid fa-shield-halved mr-1"></i> Buat Akun Admin
+                    </button>
+
+                    <button type="button" onclick="toggleAuthView('login')" class="w-full text-[10px] text-slate-400 hover:text-slate-600 font-semibold py-1">
+                        <i class="fa-solid fa-arrow-left mr-0.5"></i> Kembali ke Login
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: GANTI PASSWORD -->
+    <div id="modal-change-password" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-ios max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-900">Ganti Password Pertama Kali</h3>
+                <p class="text-xs text-slate-500">Demi keamanan akun Anda, harap ganti password default dengan password baru.</p>
+            </div>
+
+            <form onsubmit="handleChangePasswordSubmit(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Password Baru</label>
+                    <input type="password" id="new-password-input" minlength="6" required placeholder="Minimal 6 karakter" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosBlue">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Konfirmasi Password Baru</label>
+                    <input type="password" id="confirm-password-input" minlength="6" required placeholder="Ketik ulang password baru" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosBlue">
+                </div>
+
+                <div id="change-pwd-error" class="text-rose-500 font-medium hidden"></div>
+
+                <button type="submit" id="btn-change-pwd-submit" class="w-full bg-iosGreen hover:bg-emerald-600 text-white font-bold py-3 rounded-ios shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition">
+                    Simpan Password Baru
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2.5: PERATURAN -->
+    <div id="modal-rules" class="fixed inset-0 z-[52] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-ios max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
+            <div class="text-center space-y-1 border-b border-slate-100 pb-3">
+                <div class="w-12 h-12 bg-purple-100 text-iosPurple rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                    <i class="fa-solid fa-scroll"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-900">Peraturan Aplikasi</h3>
+                <p class="text-xs text-slate-500">Wajib dibaca dan dipahami sebelum menggunakan aplikasi</p>
+            </div>
+
+            <div class="max-h-[45vh] overflow-y-auto text-[11px] text-slate-700 space-y-2.5 leading-relaxed pr-1">
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-shield-heart text-iosGreen mt-0.5"></i>
+                    <p><strong>1. Kejujuran & Amanah.</strong> Catat ibadah sesuai kenyataan. Aplikasi ini alat muhasabah, bukan lomba mencatat.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-kaaba text-iosGreen mt-0.5"></i>
+                    <p><strong>2. Sholat Wajib.</strong> Pilih <strong>Ya</strong> hanya jika sholat <strong>tepat waktu dan berjamaah</strong>. Pilih <strong>Tidak</strong> jika sholat sendiri / tidak berjamaah / telat. Akhwat memilih <strong>Haidh</strong> saat masa haidh.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-hands-praying text-amber-500 mt-0.5"></i>
+                    <p><strong>3. Sholat Sunnah</strong> (Tahajud & Dhuha) cukup diisi <strong>Ya / Tidak</strong>.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-utensils text-iosBlue mt-0.5"></i>
+                    <p><strong>4. Puasa Sunnah</strong> hanya dicatat pada hari <strong>Senin & Kamis</strong>.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-book-quran text-iosPurple mt-0.5"></i>
+                    <p><strong>5. Tilawah.</strong> 10 lembar = 1 juz. Status <strong>Khatam</strong> hanya tercapai jika Juz 1–30 selesai semuanya.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-floppy-disk text-iosBlue mt-0.5"></i>
+                    <p><strong>6. Auto-Save.</strong> Setiap perubahan <strong>langsung tersimpan otomatis</strong> di perangkat — tidak perlu menekan tombol apa pun.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-lock text-iosRed mt-0.5"></i>
+                    <p><strong>7. Batas Waktu Pengisian.</strong> Catatan bisa diisi/diubah sepanjang hari sampai <strong>pukul 20:00</strong>. Pada pukul 20:00 data otomatis dikirim ke server dan <strong>TERKUNCI</strong> — tidak bisa diubah lagi.</p>
+                </div>
+                <div class="flex space-x-2.5">
+                    <i class="fa-solid fa-trophy text-iosBlue mt-0.5"></i>
+                    <p><strong>8. Peringkat</strong> dihitung dari amalan sunnah & tilawah; sholat wajib dieksklusikan (Fastabiqul Khairat).</p>
+                </div>
+            </div>
+
+            <div id="rules-footer-accept" class="space-y-3">
+                <label class="flex items-start space-x-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200 cursor-pointer">
+                    <input type="checkbox" id="rules-checkbox" onchange="updateRulesBtn()" class="mt-0.5 w-4 h-4 accent-purple-600 flex-shrink-0">
+                    <span class="text-[11px] font-semibold text-slate-700">Saya telah membaca dan <strong>memahami seluruh peraturan</strong> di atas.</span>
+                </label>
+                <button type="button" id="btn-accept-rules" onclick="handleAcceptRules()" disabled class="w-full bg-iosPurple text-white font-bold py-3 rounded-ios shadow-lg shadow-purple-500/20 transition disabled:opacity-40 disabled:pointer-events-none">
+                    <i class="fa-solid fa-check mr-1"></i> Saya Paham & Lanjutkan
+                </button>
+            </div>
+
+            <div id="rules-footer-close" class="hidden">
+                <button type="button" onclick="closeModal('modal-rules')" class="w-full bg-slate-100 border border-slate-200 text-slate-600 font-bold py-2.5 rounded-lg transition text-xs">
+                    <i class="fa-solid fa-xmark mr-1"></i> Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: KONFIGURASI -->
+    <div id="modal-config" class="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-ios max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="text-base font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-sliders text-iosBlue mr-2"></i>
+                    Konfigurasi Supabase
+                </h3>
+                <button onclick="closeModal('modal-config')" class="text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Supabase URL</label>
+                    <input type="text" id="input-supabase-url" placeholder="https://your-project.supabase.co" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-[11px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosBlue">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Supabase Anon Key</label>
+                    <textarea id="input-supabase-key" rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-[10px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosBlue"></textarea>
+                </div>
+                <button type="button" onclick="saveSupabaseConfig()" class="w-full bg-iosBlue hover:bg-blue-600 text-white font-bold py-2.5 rounded-lg shadow-md transition">
+                    Simpan & Hubungkan
+                </button>
+                <button type="button" onclick="resetSupabaseConfig()" class="w-full text-[10px] text-slate-400 hover:text-slate-600 font-semibold py-1">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Kembalikan ke Kredensial Bawaan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= SCRIPT LOGIC ================= -->
+    <script>
+        const SUPABASE_URL_DEFAULT = 'https://bksrwpqvhaaphypukrlc.supabase.co';
+        const SUPABASE_KEY_DEFAULT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrc3J3cHF2aGFhcGh5cHVrcmxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMDY3ODEsImV4cCI6MjEwNjc4Mjc4MX0.CfIQwcKRi4KcsnjKPZRE2oGpl-lPt7bsjIT8FJn6z10';
+
+        const STORAGE_KEY_LOGS = 'tracker_ibadah_logs_v2';
+        const STORAGE_KEY_USER = 'tracker_ibadah_user_v2';
+        const STORAGE_KEY_SUPABASE_CONFIG = 'tracker_ibadah_supabase_config';
+        const STORAGE_KEY_THEME = 'tracker_ibadah_theme';
+        const STORAGE_KEY_LOCKED = 'tracker_ibadah_locked_dates';
+        const STORAGE_KEY_LASTSYNC = 'tracker_ibadah_last_sync';
+        const DUMMY_EMAIL_DOMAIN = '@lembaga.local';
+        const LEMBAR_PER_JUZ = 10;
+        const AUTO_SYNC_HOUR = 20;
+        const HARI_ID = ['MINGGU','SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU'];
+        const BULAN_ID = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
+
+        let supabaseClient = null;
+        let currentUserProfile = null;
+        let adminPasswordInMemory = null;
+        let userProfile = { gender: 'female' };
+        let activeDate = new Date();
+        let dailyLogs = {};
+        let rankState = { timeframe: 'minggu', category: 'tahajud' };
+        let adminMembersCache = [];
+
+        const $ = (id) => document.getElementById(id);
+
+        function blankFormState() {
+            return {
+                puasa: null,
+                sholat: { subuh: null, dzuhur: null, ashar: null, maghrib: null, isya: null },
+                tahajud: null, dhuha: null,
+                juz: 1, fullJuz: false, lembar: 0
+            };
+        }
+        let currentFormState = blankFormState();
+
+        /* ---------- MODE GELAP ---------- */
+        function isDarkMode() { return document.documentElement.classList.contains('dark'); }
+        function toggleDarkMode() {
+            const dark = document.documentElement.classList.toggle('dark');
+            try { localStorage.setItem(STORAGE_KEY_THEME, dark ? 'dark' : 'light'); } catch(e) {}
+            updateThemeUI();
+        }
+        function updateThemeUI() {
+            const dark = isDarkMode();
+            const iconHeader = $('icon-theme');
+            if (iconHeader) iconHeader.className = dark ? 'fa-solid fa-sun text-amber-400' : 'fa-solid fa-moon text-slate-600';
+            const iconP = $('icon-theme-profile');
+            if (iconP) iconP.className = dark ? 'fa-solid fa-sun text-amber-500 mr-1' : 'fa-solid fa-moon mr-1';
+            const textP = $('text-theme-profile');
+            if (textP) textP.textContent = dark ? 'Mode Terang' : 'Mode Gelap';
+        }
+
+        /* ---------- HELPER TANGGAL ---------- */
+        function getDateString(d) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        function updateDateHeader() {
+            activeDate = new Date();
+            $('header-date').textContent = `${HARI_ID[activeDate.getDay()]}, ${activeDate.getDate()} ${BULAN_ID[activeDate.getMonth()]}`;
+            const isSeninKamis = [1, 4].includes(activeDate.getDay());
+            $('badge-hari-khusus').classList.toggle('hidden', !isSeninKamis);
+            $('puasa-card').classList.toggle('hidden', !isSeninKamis);
+        }
+
+        /* ---------- KUNCI DATA ---------- */
+        function lockedKey() { return STORAGE_KEY_LOCKED + (currentUserProfile ? '_' + currentUserProfile.id : ''); }
+        function getLockedDates() {
+            try { return JSON.parse(localStorage.getItem(lockedKey())) || []; } catch(e) { return []; }
+        }
+        function saveLockedDates(arr) { localStorage.setItem(lockedKey(), JSON.stringify(arr)); }
+        function isDateLocked(ds) { return getLockedDates().includes(ds); }
+
+        /* ---------- TOAST & MODAL ---------- */
+        let toastTimer = null;
+        function showToast(message, type = 'success') {
+            const iconMap = {
+                error: 'fa-solid fa-circle-exclamation text-rose-400 text-sm',
+                info:  'fa-solid fa-circle-info text-iosBlue text-sm',
+                success: 'fa-solid fa-circle-check text-iosGreen text-sm'
+            };
+            $('toast-message').textContent = message;
+            $('toast-icon').className = iconMap[type] || iconMap.success;
+            const t = $('ios-toast');
+            t.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none'), 3200);
+        }
+        function openModal(id) { $(id).classList.remove('hidden'); }
+        function closeModal(id) { $(id).classList.add('hidden'); }
+        function openLoginModal() {
+            $('login-error-msg').classList.add('hidden');
+            openModal('modal-login');
+        }
+        function openConfigModal() {
+            const cfg = JSON.parse(localStorage.getItem(STORAGE_KEY_SUPABASE_CONFIG) || '{}');
+            $('input-supabase-url').value = cfg.url || SUPABASE_URL_DEFAULT;
+            $('input-supabase-key').value = cfg.key || SUPABASE_KEY_DEFAULT;
+            openModal('modal-config');
+        }
+        function saveSupabaseConfig() {
+            const url = $('input-supabase-url').value.trim();
+            const key = $('input-supabase-key').value.trim();
+            if (!url || !key) { showToast('URL dan Anon Key wajib diisi!', 'error'); return; }
+            localStorage.setItem(STORAGE_KEY_SUPABASE_CONFIG, JSON.stringify({ url, key }));
+            closeModal('modal-config');
+            showToast('Konfigurasi disimpan, memuat ulang aplikasi...');
+            setTimeout(() => location.reload(), 800);
+        }
+        function resetSupabaseConfig() {
+            localStorage.removeItem(STORAGE_KEY_SUPABASE_CONFIG);
+            closeModal('modal-config');
+            showToast('Kembali ke kredensial bawaan, memuat ulang...');
+            setTimeout(() => location.reload(), 800);
+        }
+
+        /* ---------- INIT SUPABASE ---------- */
+        function initSupabaseFromStorage() {
+            let url = SUPABASE_URL_DEFAULT;
+            let key = SUPABASE_KEY_DEFAULT;
+            try {
+                const cfg = JSON.parse(localStorage.getItem(STORAGE_KEY_SUPABASE_CONFIG) || '{}');
+                if (cfg.url && cfg.key) { url = cfg.url; key = cfg.key; }
+            } catch (e) {}
+            try {
+                supabaseClient = supabase.createClient(url, key);
+                updateSupabaseStatusUI(true);
+                return true;
+            } catch (e) {
+                console.error('Gagal init Supabase:', e);
+                updateSupabaseStatusUI(false);
+            }
+            return false;
+        }
+
+        function updateSupabaseStatusUI(isConnected) {
+            const icon = $('icon-db-status'), text = $('text-db-status'),
+                  btn = $('btn-supabase-status'), badge = $('badge-supabase-connected');
+            if (isConnected) {
+                if (icon) icon.className = 'fa-solid fa-cloud text-emerald-500 text-[10px]';
+                if (text) text.textContent = 'Supabase';
+                if (btn) btn.className = 'flex items-center space-x-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-xs';
+                if (badge) { badge.textContent = 'TERHUBUNG'; badge.className = 'text-[9px] bg-emerald-500/30 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-400/30'; }
+            } else {
+                if (icon) icon.className = 'fa-solid fa-cloud-slash text-slate-400 text-[10px]';
+                if (text) text.textContent = 'Offline';
+                if (btn) btn.className = 'flex items-center space-x-1 bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full text-xs font-bold shadow-xs';
+                if (badge) { badge.textContent = 'OFFLINE'; badge.className = 'text-[9px] bg-slate-500/30 text-slate-300 font-bold px-2 py-0.5 rounded-full border border-slate-400/30'; }
+            }
+        }
+
+        /* ---------- GERBANG LOGIN ---------- */
+        async function enforceLoginGate() {
+            if (!supabaseClient) {
+                openModal('modal-config');
+                showToast('Koneksi Supabase gagal. Periksa konfigurasi.', 'error');
+                return;
+            }
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session && session.user) {
+                await fetchAndSetUserProfile(session.user.id);
+            } else {
+                showForcedLogin();
+            }
+        }
+
+        function toggleAuthView(mode) {
+            $('login-form-section').classList.toggle('hidden', mode !== 'login');
+            $('setup-admin-section').classList.toggle('hidden', mode !== 'setup');
+        }
+
+        async function checkAdminExists() {
+            if (!supabaseClient) return true;
+            try {
+                const { data, error } = await supabaseClient.rpc('app_has_admin');
+                if (error) return true;
+                return data === true;
+            } catch (e) { return true; }
+        }
+
+        async function showForcedLogin() {
+            currentUserProfile = null;
+            updateAuthProfileUI();
+            $('login-username').value = '';
+            $('login-password').value = '';
+            $('login-error-msg').classList.add('hidden');
+            openModal('modal-login');
+            const hasAdmin = await checkAdminExists();
+            toggleAuthView(hasAdmin ? 'login' : 'setup');
+        }
+
+        /* ---------- AUTH ---------- */
+        async function fetchAndSetUserProfile(userId) {
+            if (!supabaseClient) return;
+            const { data, error } = await supabaseClient
+                .from('profiles').select('*').eq('id', userId).single();
+
+            if (error || !data) {
+                console.error('Gagal ambil profil:', error);
+                showToast('Gagal ambil profil. Pastikan SQL (tabel profiles & trigger) sudah dijalankan.', 'error');
+                showForcedLogin();
+                return;
+            }
+            currentUserProfile = data;
+            userProfile.gender = data.gender || 'female';
+            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userProfile));
+
+            updateGenderUIState();
+            updateAuthProfileUI();
+            updateRulesBadge();
+
+            if (data.is_first_login) {
+                openModal('modal-change-password');
+            } else if (!data.rules_accepted) {
+                closeModal('modal-login');
+                openRulesModal(false);
+            } else {
+                closeModal('modal-login');
+                await loadLogsFromSupabase();
+                checkAutoSync(true);
+            }
+        }
+
+        async function handleLoginSubmit(event) {
+            event.preventDefault();
+            const username = $('login-username').value.trim().toLowerCase();
+            const password = $('login-password').value;
+            const errorEl = $('login-error-msg'), btn = $('btn-login-submit');
+
+            if (!supabaseClient) {
+                openConfigModal();
+                showToast('Koneksi Supabase gagal!', 'error');
+                return;
+            }
+            errorEl.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Memproses...';
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: username + DUMMY_EMAIL_DOMAIN,
+                password: password
+            });
+
+            btn.disabled = false;
+            btn.innerHTML = 'Masuk Sekarang';
+
+            if (error) {
+                let msg = 'Login gagal: username atau password salah!';
+                const em = (error.message || '').toLowerCase();
+                if (em.includes('email not confirmed')) {
+                    msg = 'Akun belum terkonfirmasi. Buka Supabase → Authentication → Sign In / Providers → matikan "Confirm email", lalu coba lagi.';
+                } else if (em.includes('invalid login credentials')) {
+                    msg = 'Username atau password salah. Belum punya akun? Gunakan "Setup Admin Pertama" di bawah.';
+                } else if (em.includes('failed to fetch')) {
+                    msg = 'Tidak bisa menghubungi server Supabase. Periksa koneksi internet / URL project.';
+                } else {
+                    msg = 'Login gagal: ' + error.message;
+                }
+                errorEl.textContent = msg;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            adminPasswordInMemory = password;
+            showToast('Login berhasil!');
+            await fetchAndSetUserProfile(data.user.id);
+        }
+
+        async function handleSetupAdmin(event) {
+            event.preventDefault();
+            const username = $('setup-username').value.trim().toLowerCase();
+            const password = $('setup-password').value;
+            const gender = $('setup-gender').value;
+            const errorEl = $('setup-error-msg'), btn = $('btn-setup-admin');
+
+            if (!supabaseClient) {
+                showToast('Koneksi Supabase gagal!', 'error');
+                return;
+            }
+            errorEl.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Membuat akun admin...';
+
+            const { data, error } = await supabaseClient.auth.signUp({
+                email: username + DUMMY_EMAIL_DOMAIN,
+                password: password,
+                options: { data: { role: 'admin', gender: gender } }
+            });
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> Buat Akun Admin';
+
+            if (error) {
+                let msg = 'Gagal: ' + error.message;
+                if ((error.message || '').toLowerCase().includes('already registered')) {
+                    msg = 'Username ini sudah terdaftar. Silakan login langsung, atau pakai username lain.';
+                }
+                errorEl.textContent = msg;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (data.session && data.user) {
+                adminPasswordInMemory = password;
+                showToast('Admin berhasil dibuat! Selamat datang.');
+                await fetchAndSetUserProfile(data.user.id);
+            } else {
+                errorEl.textContent = 'Akun dibuat, tapi belum bisa login karena "Confirm email" masih aktif. Matikan di Supabase → Authentication → Sign In / Providers, lalu login kembali.';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function handleChangePasswordSubmit(event) {
+            event.preventDefault();
+            const newPwd = $('new-password-input').value;
+            const confirmPwd = $('confirm-password-input').value;
+            const errorEl = $('change-pwd-error'), btn = $('btn-change-pwd-submit');
+
+            errorEl.classList.add('hidden');
+            if (newPwd !== confirmPwd) {
+                errorEl.textContent = 'Password dan konfirmasi tidak sama!';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (newPwd.length < 6) {
+                errorEl.textContent = 'Password minimal 6 karakter!';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Menyimpan...';
+
+            const { error } = await supabaseClient.auth.updateUser({ password: newPwd });
+            if (!error) {
+                await supabaseClient.from('profiles')
+                    .update({ is_first_login: false }).eq('id', currentUserProfile.id);
+                currentUserProfile.is_first_login = false;
+                closeModal('modal-change-password');
+                showToast('Password berhasil diganti!');
+
+                if (!currentUserProfile.rules_accepted) {
+                    openRulesModal(false);
+                } else {
+                    await loadLogsFromSupabase();
+                    checkAutoSync(true);
+                }
+            } else {
+                errorEl.textContent = 'Gagal: ' + error.message;
+                errorEl.classList.remove('hidden');
+            }
+            btn.disabled = false;
+            btn.innerHTML = 'Simpan Password Baru';
+        }
+
+        /* ---------- PERATURAN ---------- */
+        function openRulesModal(settingsMode) {
+            $('rules-footer-accept').classList.toggle('hidden', !!settingsMode);
+            $('rules-footer-close').classList.toggle('hidden', !settingsMode);
+            if (!settingsMode) {
+                $('rules-checkbox').checked = false;
+                $('btn-accept-rules').disabled = true;
+            }
+            openModal('modal-rules');
+        }
+        function updateRulesBtn() {
+            $('btn-accept-rules').disabled = !$('rules-checkbox').checked;
+        }
+        async function handleAcceptRules() {
+            if (!$('rules-checkbox').checked) return;
+            const { error } = await supabaseClient.from('profiles')
+                .update({ rules_accepted: true }).eq('id', currentUserProfile.id);
+            if (error) {
+                showToast('Gagal menyimpan status peraturan: ' + error.message, 'error');
+                return;
+            }
+            currentUserProfile.rules_accepted = true;
+            closeModal('modal-rules');
+            updateRulesBadge();
+            showToast('Peraturan dipahami. Selamat menggunakan aplikasi!');
+            await loadLogsFromSupabase();
+            checkAutoSync(true);
+        }
+        function updateRulesBadge() {
+            const badge = $('badge-rules-status');
+            if (!badge) return;
+            if (currentUserProfile && currentUserProfile.rules_accepted) {
+                badge.textContent = 'SUDAH DIPAHAMI ✓';
+                badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100';
+            } else {
+                badge.textContent = 'BELUM DIPAHAMI';
+                badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100';
+            }
+        }
+
+        /* ---------- SINKRONISASI: LOKAL → AUTO UPLOAD 20:00 → KUNCI ---------- */
+        async function syncDates(dates, announce) {
+            if (!supabaseClient || !currentUserProfile || !dates.length) return 0;
+            let ok = 0;
+            for (const d of dates) {
+                const log = dailyLogs[d];
+                if (!log) continue;
+                const { error } = await supabaseClient.from('ibadah_logs').upsert({
+                    user_id: currentUserProfile.id, log_date: d,
+                    puasa: log.puasa || 'tidak',
+                    sholat_subuh: (log.sholat && log.sholat.subuh) || 'tidak',
+                    sholat_dzuhur: (log.sholat && log.sholat.dzuhur) || 'tidak',
+                    sholat_ashar: (log.sholat && log.sholat.ashar) || 'tidak',
+                    sholat_maghrib: (log.sholat && log.sholat.maghrib) || 'tidak',
+                    sholat_isya: (log.sholat && log.sholat.isya) || 'tidak',
+                    tahajud: log.tahajud || 'tidak',
+                    dhuha: log.dhuha || 'tidak',
+                    juz: log.juz || 1,
+                    lembar: log.fullJuz ? LEMBAR_PER_JUZ : (log.lembar || 0)
+                }, { onConflict: 'user_id,log_date' });
+                if (!error) {
+                    const locks = getLockedDates();
+                    if (!locks.includes(d)) { locks.push(d); saveLockedDates(locks); }
+                    ok++;
+                } else {
+                    console.error('Sync gagal untuk', d, error);
+                }
+            }
+            if (ok > 0) {
+                localStorage.setItem(STORAGE_KEY_LASTSYNC, new Date().toISOString());
+                loadFormStateForActiveDate();
+                renderFormUI();
+                renderRekapVisuals();
+                updateStreakUI();
+                if (announce) showToast(`🔒 ${ok} hari data terkirim & terkunci`);
+            }
+            return ok;
+        }
+
+        async function checkAutoSync(announce) {
+            if (!supabaseClient || !currentUserProfile) { updateSyncCard(); return; }
+            const now = new Date();
+            const todayStr = getDateString(now);
+
+            const past = Object.keys(dailyLogs).filter(d => !isDateLocked(d) && d < todayStr);
+            if (past.length) await syncDates(past, false);
+
+            if (now.getHours() >= AUTO_SYNC_HOUR && !isDateLocked(todayStr) && dailyLogs[todayStr]) {
+                // hanya kirim jika ada isi (tidak kosong total)
+                const log = dailyLogs[todayStr];
+                const hasContent = log && (
+                    (log.puasa && log.puasa !== null) ||
+                    Object.values(log.sholat || {}).some(v => v !== null) ||
+                    log.tahajud !== null || log.dhuha !== null ||
+                    (log.lembar || 0) > 0
+                );
+                if (hasContent) await syncDates([todayStr], announce);
+            }
+            updateSyncCard();
+        }
+
+        async function manualSync() {
+            if (!supabaseClient || !currentUserProfile) {
+                showToast('Login dulu untuk sinkronisasi!', 'error');
+                return;
+            }
+            const todayStr = getDateString(new Date());
+            const pending = Object.keys(dailyLogs).filter(d => !isDateLocked(d) && d <= todayStr);
+            if (!pending.length) {
+                showToast('Tidak ada data yang menunggu terkirim.', 'info');
+                return;
+            }
+            const ok = await syncDates(pending, false);
+            showToast(ok ? `🔒 ${ok} hari data terkirim & terkunci` : 'Gagal sinkron. Periksa koneksi.', ok ? 'success' : 'error');
+            updateSyncCard();
+        }
+
+        function updateSyncCard() {
+            const todayStr = getDateString(new Date());
+            const badge = $('badge-locked-today');
+            if (badge) badge.classList.toggle('hidden', !isDateLocked(todayStr));
+            const last = localStorage.getItem(STORAGE_KEY_LASTSYNC);
+            const el = $('sync-last');
+            if (el) el.textContent = last
+                ? new Date(last).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                : 'Belum pernah';
+            const pend = $('sync-pending');
+            if (pend) {
+                const n = Object.keys(dailyLogs).filter(d => !isDateLocked(d)).length;
+                pend.textContent = n + ' hari';
+            }
+        }
+
+        async function handleLogout() {
+            if (supabaseClient) await supabaseClient.auth.signOut();
+            currentUserProfile = null;
+            adminPasswordInMemory = null;
+            adminMembersCache = [];
+            dailyLogs = {};
+            localStorage.removeItem(STORAGE_KEY_USER);
+            localStorage.removeItem(STORAGE_KEY_LOGS);
+            updateGenderUIState();
+            updateAuthProfileUI();
+            updateRulesBadge();
+            loadFormStateForActiveDate();
+            renderFormUI();
+            renderRekapVisuals();
+            updateStreakUI();
+            switchTab('beranda');
+            showForcedLogin();
+        }
+
+        /* ============================================================
+           ★ AUTO-SAVE LOKAL (pengganti tombol simpan)
+           Dipanggil setiap interaksi user: klik segmen, ganti juz,
+           isi lembar, toggle juz penuh.
+        ============================================================ */
+        let autosaveFlashTimer = null;
+        function flashAutoSaved() {
+            const el = $('autosave-status');
+            const dot = $('autosave-dot');
+            if (!el) return;
+            const t = new Date();
+            el.textContent = 'Tersimpan otomatis · ' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+            el.classList.add('text-iosGreen');
+            if (dot) dot.classList.add('animate-ping');
+            clearTimeout(autosaveFlashTimer);
+            autosaveFlashTimer = setTimeout(() => {
+                el.classList.remove('text-iosGreen');
+                if (dot) dot.classList.remove('animate-ping');
+            }, 1500);
+        }
+
+        function autoSaveLocal() {
+            if (!currentUserProfile) return;
+            const key = getDateString(activeDate);
+            if (isDateLocked(key)) return;
+
+            const beforeProg = getTilawahProgress();
+            dailyLogs[key] = JSON.parse(JSON.stringify(currentFormState));
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(dailyLogs));
+            const afterProg = getTilawahProgress();
+
+            const newlyDone = afterProg.juzSelesai.filter(j => !beforeProg.juzSelesai.includes(j));
+            const khatamBaru = afterProg.khatamCount > beforeProg.khatamCount;
+
+            if (khatamBaru) {
+                showToast(`MasyaAllah! KHATAM Al-Qur'an ke-${afterProg.khatamCount}! 🎉📖`);
+            } else if (newlyDone.length) {
+                showToast(`Juz ${newlyDone.join(', ')} selesai! (${afterProg.juzSelesaiCount}/30 menuju khatam) 🎉`);
+            } else {
+                flashAutoSaved();
+            }
+
+            renderRekapVisuals();
+            updateStreakUI();
+            updateSyncCard();
+
+            // Jika sudah lewat jam 20:00 → langsung kirim & kunci
+            if (new Date().getHours() >= AUTO_SYNC_HOUR) checkAutoSync(true);
+        }
+
+        /* ============================================================
+           KALKULASI TILAWAH & KHATAM (bisa dipakai untuk logs siapa pun)
+        ============================================================ */
+        function getTilawahProgress(logs = dailyLogs) {
+            const dates = Object.keys(logs).sort();
+            let juzCounters = {};
+            let khatamCount = 0;
+            let totalLembar = 0;
+            let currentJuz = null;
+
+            for (const d of dates) {
+                const log = logs[d];
+                const lembar = log.fullJuz ? LEMBAR_PER_JUZ : (log.lembar || 0);
+                if (lembar <= 0) continue;
+                const juz = log.juz || 1;
+
+                totalLembar += lembar;
+                currentJuz = juz;
+                juzCounters[juz] = (juzCounters[juz] || 0) + lembar;
+
+                let semuaSelesai = true;
+                for (let j = 1; j <= 30; j++) {
+                    if ((juzCounters[j] || 0) < LEMBAR_PER_JUZ) { semuaSelesai = false; break; }
+                }
+                if (semuaSelesai) {
+                    khatamCount++;
+                    juzCounters = {};
+                }
+            }
+
+            const juzSelesai = [];
+            for (let j = 1; j <= 30; j++) {
+                if ((juzCounters[j] || 0) >= LEMBAR_PER_JUZ) juzSelesai.push(j);
+            }
+            let nextJuz = null;
+            for (let j = 1; j <= 30; j++) {
+                if ((juzCounters[j] || 0) < LEMBAR_PER_JUZ) { nextJuz = j; break; }
+            }
+
+            return {
+                currentJuz,
+                lembarInJuz: currentJuz ? Math.min(juzCounters[currentJuz] || 0, LEMBAR_PER_JUZ) : 0,
+                juzCounters,
+                totalLembar,
+                khatamCount,
+                juzSelesai,
+                juzSelesaiCount: juzSelesai.length,
+                nextJuz
+            };
+        }
+
+        function lembarToJuzText(lembar) {
+            if (lembar <= 0) return '0 Juz';
+            if (lembar === LEMBAR_PER_JUZ) return '1 Juz';
+            if (lembar === LEMBAR_PER_JUZ / 2) return '½ Juz';
+            if (lembar === LEMBAR_PER_JUZ / 4) return '¼ Juz';
+            if (lembar === LEMBAR_PER_JUZ * 3 / 4) return '¾ Juz';
+            return (lembar / LEMBAR_PER_JUZ).toFixed(2).replace(/\.?0+$/, '') + ' Juz';
+        }
+
+        function calcStreak(logs = dailyLogs) {
+            let streak = 0;
+            const d = new Date();
+            const count = (dd) => {
+                const l = logs[getDateString(dd)];
+                return l ? Object.values(l.sholat || {}).filter(v => v === 'ya').length : 0;
+            };
+            if (count(d) < 5) d.setDate(d.getDate() - 1);
+            while (count(d) === 5) { streak++; d.setDate(d.getDate() - 1); }
+            return streak;
+        }
+
+        function renderJuzGrid(prog, gridId = 'juz-grid') {
+            const grid = $(gridId);
+            if (!grid) return;
+            grid.innerHTML = '';
+            for (let j = 1; j <= 30; j++) {
+                const c = prog.juzCounters[j] || 0;
+                const done = c >= LEMBAR_PER_JUZ;
+                const partial = !done && c > 0;
+                const cell = document.createElement('div');
+                cell.className = 'aspect-square rounded-md flex items-center justify-center text-[9px] font-bold transition-colors ' +
+                    (done ? 'bg-iosPurple text-white'
+                          : partial ? 'bg-purple-100 text-purple-700'
+                          : 'bg-slate-100 text-slate-400');
+                cell.textContent = j;
+                cell.title = `Juz ${j}` + (done ? ' — Selesai ✓' : partial ? ` — ${c}/${LEMBAR_PER_JUZ} lembar` : ' — Belum dibaca');
+                grid.appendChild(cell);
+            }
+            const subEl = gridId === 'juz-grid' ? $('khatam-overall-sub') : $(gridId + '-sub');
+            if (subEl) {
+                if (prog.khatamCount > 0) {
+                    subEl.innerHTML = `<i class="fa-solid fa-trophy mr-1"></i> Sudah khatam ${prog.khatamCount}× · siklus aktif: ${prog.juzSelesaiCount}/30 juz.`;
+                } else if (prog.juzSelesaiCount > 0) {
+                    subEl.innerHTML = `<i class="fa-solid fa-arrow-right mr-1"></i> ${prog.juzSelesaiCount}/30 juz selesai — tersisa ${30 - prog.juzSelesaiCount} juz untuk khatam.`;
+                } else {
+                    subEl.innerHTML = `<i class="fa-solid fa-circle-info mr-1"></i> Khatam penuh tercapai saat Juz 1–30 semua selesai.`;
+                }
+            }
+            const overallEl = gridId === 'juz-grid' ? $('khatam-overall') : $(gridId + '-overall');
+            if (overallEl) overallEl.textContent = `${prog.juzSelesaiCount}/30 Juz${prog.khatamCount > 0 ? ` · ${prog.khatamCount}×` : ''}`;
+        }
+
+        function renderMiniWeeklyChart(containerId, logs) {
+            const container = $(containerId);
+            if (!container) return 0;
+            container.innerHTML = '';
+            let totalSholat = 0;
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                const log = logs[getDateString(d)];
+                const count = getSholatCountForDay(log);
+                totalSholat += count;
+
+                let color = 'bg-slate-200';
+                if (isHaidhDay(log)) color = 'bg-iosRed';
+                else if (count >= 4) color = 'bg-iosGreen';
+                else if (count >= 1) color = 'bg-amber-400';
+
+                const cell = document.createElement('div');
+                cell.className = 'flex flex-col items-center justify-end h-full space-y-1';
+                cell.innerHTML = `
+                    <span class="text-[9px] font-bold text-slate-500">${count}</span>
+                    <div class="w-full ${color} rounded-t-md" style="height:${Math.max(count * 16, 6)}px"></div>
+                    <span class="text-[9px] text-slate-400">${['M','S','S','R','K','J','S'][d.getDay()]}</span>`;
+                container.appendChild(cell);
+            }
+            return totalSholat;
+        }
+
+        function renderTilawahProgress() {
+            const selJuz = parseInt($('select-juz').value) || 1;
+            const lembarHariIni = currentFormState.fullJuz ? LEMBAR_PER_JUZ : (parseInt($('input-lembar').value) || 0);
+            const prog = getTilawahProgress();
+
+            const base = Math.min(prog.juzCounters[selJuz] || 0, LEMBAR_PER_JUZ);
+            const total = base + lembarHariIni;
+            const pct = Math.min(Math.round(total / LEMBAR_PER_JUZ * 100), 100);
+            const sisa = Math.max(LEMBAR_PER_JUZ - total, 0);
+
+            $('progress-juz-num').textContent = selJuz;
+            $('progress-juz-text').textContent = `${total}/${LEMBAR_PER_JUZ} Lembar (${lembarToJuzText(total)})`;
+            $('progress-juz-bar').style.width = pct + '%';
+
+            if (total >= LEMBAR_PER_JUZ) {
+                const nextInfo = prog.nextJuz ? ` Saran: lanjut ke Juz ${prog.nextJuz}.` : '';
+                $('progress-juz-info').innerHTML =
+                    `<i class="fa-solid fa-circle-check mr-1"></i> Khatam Juz ${selJuz}! MasyaAllah 🎉${nextInfo}`;
+            } else if (base > 0) {
+                $('progress-juz-info').innerHTML =
+                    `<i class="fa-solid fa-arrow-rotate-right mr-1"></i> Sudah terkumpul ${base} lembar di Juz ${selJuz} (termasuk bacaan hari sebelumnya). Tersisa ${sisa} lembar lagi.`;
+            } else {
+                $('progress-juz-info').innerHTML =
+                    `<i class="fa-solid fa-circle-info mr-1"></i> Tersisa ${LEMBAR_PER_JUZ - lembarHariIni} lembar lagi untuk menyelesaikan Juz ${selJuz}.`;
+            }
+
+            $('tilawah-preview').innerHTML =
+                `<i class="fa-solid fa-calculator mr-1 text-iosPurple"></i> +${lembarHariIni} lembar hari ini = ${lembarToJuzText(lembarHariIni)}` +
+                (base > 0 ? ` — total Juz ${selJuz} jadi ${total}/${LEMBAR_PER_JUZ} lembar` : ` — mulai di Juz ${selJuz}`) +
+                ` · Juz selesai: ${prog.juzSelesaiCount}/30`;
+
+            renderJuzGrid(prog, 'juz-grid');
+        }
+
+        /* ---------- FORM UI ---------- */
+        function populateJuzSelectOptions() {
+            const sel = $('select-juz');
+            sel.innerHTML = '';
+            for (let i = 1; i <= 30; i++) {
+                const opt = document.createElement('option');
+                opt.value = i; opt.textContent = `Juz ${i}`;
+                sel.appendChild(opt);
+            }
+        }
+        function updateFormStateFromUI() {
+            if (isDateLocked(getDateString(activeDate))) return;
+            currentFormState.juz = parseInt($('select-juz').value) || 1;
+            currentFormState.lembar = parseInt($('input-lembar').value) || 0;
+            renderTilawahProgress();
+            autoSaveLocal(); // ★ auto-save saat ganti juz / isi lembar
+        }
+        function toggleFullJuz() {
+            if (isDateLocked(getDateString(activeDate))) return;
+            currentFormState.fullJuz = !currentFormState.fullJuz;
+            updateFullJuzUI();
+            renderTilawahProgress();
+            autoSaveLocal(); // ★ auto-save saat toggle juz penuh
+        }
+        function updateFullJuzUI() {
+            const btn = $('btn-toggle-fulljuz'), knob = $('toggle-knob');
+            if (currentFormState.fullJuz) {
+                btn.classList.remove('bg-slate-200'); btn.classList.add('bg-iosPurple');
+                knob.classList.replace('translate-x-0', 'translate-x-5');
+                $('container-lembar-input').classList.remove('expanded');
+                currentFormState.lembar = LEMBAR_PER_JUZ; $('input-lembar').value = LEMBAR_PER_JUZ;
+            } else {
+                btn.classList.add('bg-slate-200'); btn.classList.remove('bg-iosPurple');
+                knob.classList.replace('translate-x-5', 'translate-x-0');
+                $('container-lembar-input').classList.add('expanded');
+            }
+        }
+        function loadFormStateForActiveDate() {
+            const log = dailyLogs[getDateString(activeDate)];
+            currentFormState = log ? JSON.parse(JSON.stringify(log)) : blankFormState();
+            currentFormState.sholat = Object.assign({ subuh:null,dzuhur:null,ashar:null,maghrib:null,isya:null }, currentFormState.sholat || {});
+
+            if (!log) {
+                const p = getTilawahProgress();
+                if (p.currentJuz) {
+                    if (!p.juzSelesai.includes(p.currentJuz)) {
+                        currentFormState.juz = p.currentJuz;
+                    } else if (p.nextJuz) {
+                        currentFormState.juz = p.nextJuz;
+                    }
+                }
+            }
+
+            $('select-juz').value = currentFormState.juz || 1;
+            $('input-lembar').value = currentFormState.fullJuz ? LEMBAR_PER_JUZ : (currentFormState.lembar || 0);
+            updateFullJuzUI();
+        }
+        function renderSegment(containerId, getValue, setValue, allowHaidh, disabled) {
+            const container = $(containerId);
+            container.innerHTML = '';
+            const opts = allowHaidh
+                ? [{ v:'ya', l:'Ya' }, { v:'tidak', l:'Tidak' }, { v:'haidh', l:'Haidh' }]
+                : [{ v:'ya', l:'Ya' }, { v:'tidak', l:'Tidak' }];
+            opts.forEach(o => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.textContent = o.l;
+                b.className = 'ios-seg-btn' + (getValue() === o.v ? ' active-' + o.v : '');
+                if (disabled) {
+                    b.classList.add('opacity-50', 'pointer-events-none');
+                } else {
+                    b.onclick = () => { setValue(o.v); renderFormUI(); autoSaveLocal(); }; // ★ auto-save saat klik segmen
+                }
+                container.appendChild(b);
+            });
+        }
+        function renderFormUI() {
+            const isFemale = userProfile.gender === 'female';
+            const locked = isDateLocked(getDateString(activeDate));
+
+            renderSegment('seg-puasa', () => currentFormState.puasa, v => currentFormState.puasa = v, isFemale, locked);
+            renderSegment('seg-sholat-subuh', () => currentFormState.sholat.subuh, v => currentFormState.sholat.subuh = v, isFemale, locked);
+            renderSegment('seg-sholat-dzuhur', () => currentFormState.sholat.dzuhur, v => currentFormState.sholat.dzuhur = v, isFemale, locked);
+            renderSegment('seg-sholat-ashar', () => currentFormState.sholat.ashar, v => currentFormState.sholat.ashar = v, isFemale, locked);
+            renderSegment('seg-sholat-maghrib', () => currentFormState.sholat.maghrib, v => currentFormState.sholat.maghrib = v, isFemale, locked);
+            renderSegment('seg-sholat-isya', () => currentFormState.sholat.isya, v => currentFormState.sholat.isya = v, isFemale, locked);
+            renderSegment('seg-sunnah-tahajud', () => currentFormState.tahajud, v => currentFormState.tahajud = v, false, locked);
+            renderSegment('seg-sunnah-dhuha', () => currentFormState.dhuha, v => currentFormState.dhuha = v, false, locked);
+
+            const filled = Object.values(currentFormState.sholat).filter(v => v !== null).length;
+            $('sholat-wajib-badge').textContent = `${filled}/5 Terisi`;
+
+            // Kunci / buka kunci elemen form
+            $('select-juz').disabled = locked;
+            $('input-lembar').disabled = locked;
+            const tBtn = $('btn-toggle-fulljuz');
+            tBtn.disabled = locked;
+            tBtn.classList.toggle('opacity-50', locked);
+            tBtn.classList.toggle('pointer-events-none', locked);
+            $('lock-banner').classList.toggle('hidden', !locked);
+            $('autosave-card').classList.toggle('hidden', locked);
+
+            renderTilawahProgress();
+        }
+
+        function loadLogsFromStorageLocal() {
+            try { dailyLogs = JSON.parse(localStorage.getItem(STORAGE_KEY_LOGS)) || {}; }
+            catch (e) { dailyLogs = {}; }
+            loadFormStateForActiveDate();
+        }
+
+        async function loadLogsFromSupabase() {
+            if (!supabaseClient || !currentUserProfile) { loadLogsFromStorageLocal(); renderFormUI(); return; }
+            const { data, error } = await supabaseClient
+                .from('ibadah_logs').select('*').eq('user_id', currentUserProfile.id);
+
+            if (error) {
+                console.error(error);
+                showToast('Gagal memuat data dari Supabase', 'error');
+                loadLogsFromStorageLocal();
+            } else {
+                const supa = {};
+                (data || []).forEach(row => {
+                    supa[row.log_date] = {
+                        puasa: row.puasa,
+                        sholat: { subuh: row.sholat_subuh, dzuhur: row.sholat_dzuhur, ashar: row.sholat_ashar, maghrib: row.sholat_maghrib, isya: row.sholat_isya },
+                        tahajud: row.tahajud, dhuha: row.dhuha,
+                        juz: row.juz, fullJuz: row.lembar >= LEMBAR_PER_JUZ, lembar: row.lembar
+                    };
+                });
+
+                let localCopy = {};
+                try { localCopy = JSON.parse(localStorage.getItem(STORAGE_KEY_LOGS)) || {}; } catch(e) {}
+                const merged = { ...supa };
+                for (const d in localCopy) {
+                    if (!isDateLocked(d)) merged[d] = localCopy[d];
+                }
+                dailyLogs = merged;
+                localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(dailyLogs));
+                loadFormStateForActiveDate();
+            }
+            renderFormUI();
+            renderRekapVisuals();
+            updateStreakUI();
+            updateSyncCard();
+        }
+
+        /* ---------- REKAP & STREAK (PRIBADI) ---------- */
+        function getSholatCountForDay(log) {
+            return log ? Object.values(log.sholat || {}).filter(v => v === 'ya').length : 0;
+        }
+        function isHaidhDay(log) {
+            return log ? [log.puasa, ...Object.values(log.sholat || {})].includes('haidh') : false;
+        }
+        function updateStreakUI() {
+            $('streak-counter').textContent = calcStreak(dailyLogs) + ' Hari';
+        }
+        function renderRekapVisuals() { renderWeeklyChart(); renderMonthlyView(); }
+
+        function renderWeeklyChart() {
+            const totalSholat = renderMiniWeeklyChart('weekly-chart-container', dailyLogs);
+            let totalLembar = 0;
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                const log = dailyLogs[getDateString(d)];
+                totalLembar += log ? (log.lembar || 0) : 0;
+            }
+            const pct = Math.round(totalSholat / 35 * 100);
+            $('rekap-completion-badge').textContent = pct + '% Selesai';
+            $('summary-sholat-count').textContent = `${totalSholat} / 35`;
+            $('summary-sholat-percent').textContent = pct + '% Terpenuhi';
+            $('summary-tilawah-lembar').textContent = totalLembar + ' Lembar';
+            const prog = getTilawahProgress();
+            $('summary-tilawah-juz').textContent = `Juz selesai: ${prog.juzSelesaiCount}/30 · Khatam ${prog.khatamCount}×`;
+        }
+
+        function renderMonthlyView() {
+            const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            let puasa = 0, haidh = 0, sunnah = 0;
+            const entries = [];
+            const haidhDates = [];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const log = dailyLogs[key];
+                if (!log) continue;
+                if (log.puasa === 'ya') puasa++;
+                if (isHaidhDay(log)) { haidh++; haidhDates.push(d); }
+                if (log.tahajud === 'ya') sunnah++;
+                if (log.dhuha === 'ya') sunnah++;
+                entries.push({ key, log });
+            }
+            $('monthly-puasa-val').textContent = puasa + ' Hari';
+            $('monthly-haidh-val').textContent = haidh + ' Hari';
+            $('monthly-sunnah-val').textContent = sunnah + ' Kali';
+
+            const prog = getTilawahProgress();
+            $('monthly-tilawah-val').textContent = prog.juzSelesaiCount + '/30 Juz';
+            $('monthly-tilawah-sub').textContent = `Khatam penuh: ${prog.khatamCount}× · ${prog.totalLembar} lembar`;
+
+            const isFemale = userProfile.gender === 'female';
+            $('card-monthly-haidh').classList.toggle('hidden', !isFemale);
+            $('legend-haidh').classList.toggle('hidden', !isFemale);
+
+            renderHaidhMonitor(y, m, haidh, haidhDates, isFemale);
+
+            const list = $('history-log-list');
+            list.innerHTML = '';
+            const sorted = entries.sort((a, b) => b.key.localeCompare(a.key)).slice(0, 15);
+            if (!sorted.length) {
+                list.innerHTML = '<p class="p-3 text-center text-iosGray">Belum ada catatan bulan ini.</p>';
+                return;
+            }
+            sorted.forEach(({ key, log }) => {
+                const count = getSholatCountForDay(log);
+                const dObj = new Date(key + 'T00:00:00');
+                const status = isHaidhDay(log) ? ['HAIDH', 'bg-rose-50 text-rose-600']
+                    : count >= 4 ? ['LENGKAP', 'bg-emerald-50 text-emerald-600']
+                    : count >= 1 ? ['SEBAGIAN', 'bg-amber-50 text-amber-600']
+                    : ['KOSONG', 'bg-slate-100 text-slate-500'];
+                const row = document.createElement('div');
+                row.className = 'py-2.5 flex justify-between items-center';
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold text-slate-800">${HARI_ID[dObj.getDay()]}, ${dObj.getDate()} ${BULAN_ID[dObj.getMonth()]}</p>
+                        <p class="text-[10px] text-iosGray">Sholat ${count}/5 · Juz ${log.juz || 1} · ${log.lembar || 0} lembar (${lembarToJuzText(log.lembar || 0)})</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full ${status[1]}">${status[0]}</span>`;
+                list.appendChild(row);
+            });
+        }
+
+        /* ---------- MONITOR HAIDH (KHUSUS AKHWAT) ---------- */
+        function renderHaidhMonitor(year, month, haidhThisMonth, haidhDates, isFemale) {
+            const card = $('card-haidh-monitor');
+            if (!isFemale) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+
+            $('haidh-this-month').textContent = haidhThisMonth + ' Hari';
+
+            const prevMonth = month === 0 ? 11 : month - 1;
+            const prevYear = month === 0 ? year - 1 : year;
+            const daysInPrev = new Date(prevYear, prevMonth + 1, 0).getDate();
+            let haidhPrev = 0;
+            for (let d = 1; d <= daysInPrev; d++) {
+                const key = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                if (isHaidhDay(dailyLogs[key])) haidhPrev++;
+            }
+            $('haidh-last-month').textContent = haidhPrev + ' Hari';
+
+            const listEl = $('haidh-dates-list');
+            listEl.innerHTML = '';
+            if (!haidhDates.length) {
+                listEl.innerHTML = '<span class="text-[10px] text-iosGray">Belum ada catatan haidh bulan ini.</span>';
+            } else {
+                haidhDates.forEach(d => {
+                    const pill = document.createElement('span');
+                    pill.className = 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-100';
+                    pill.textContent = d + ' ' + BULAN_ID[month].substring(0, 3);
+                    listEl.appendChild(pill);
+                });
+            }
+
+            const infoEl = $('haidh-monitor-info');
+            if (haidhThisMonth > 0) {
+                infoEl.innerHTML =
+                    `<i class="fa-solid fa-circle-info mr-1"></i> Total ${haidhThisMonth} hari haidh tercatat bulan ini (bulan lalu: ${haidhPrev} hari). Periode normal 6–8 hari — jika melebihi, disarankan konsultasi.`;
+            } else {
+                infoEl.innerHTML =
+                    `<i class="fa-solid fa-circle-info mr-1"></i> Belum ada hari haidh tercatat bulan ini (bulan lalu: ${haidhPrev} hari).`;
+            }
+        }
+
+        /* ============================================================
+           ADMIN: REKAP DETAIL JAMAAH
+        ============================================================ */
+        function selectAdminMember(userId) {
+            $('admin-member-select').value = userId;
+            loadAdminMemberRecap();
+        }
+
+        async function loadAdminMemberRecap() {
+            const sel = $('admin-member-select');
+            const container = $('admin-member-recap-detail');
+            if (!container) return;
+
+            const userId = sel ? sel.value : '';
+            if (!userId) {
+                container.innerHTML = '<p class="p-3 text-center text-iosGray text-xs">Pilih jamaah atau klik tombol <strong>Rekap</strong> di daftar di bawah.</p>';
+                return;
+            }
+
+            container.innerHTML = '<p class="p-3 text-center text-iosGray text-xs"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Memuat rekap jamaah...</p>';
+
+            const member = adminMembersCache.find(m => m.id === userId);
+            if (!member) {
+                container.innerHTML = '<p class="p-3 text-center text-rose-500 text-xs">Jamaah tidak ditemukan. Klik Refresh pada daftar jamaah.</p>';
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('ibadah_logs').select('*').eq('user_id', userId);
+
+            if (error) {
+                container.innerHTML = `<p class="p-3 text-center text-rose-500 text-xs">Gagal memuat: ${error.message}</p>`;
+                return;
+            }
+
+            const logs = {};
+            (data || []).forEach(row => {
+                logs[row.log_date] = {
+                    puasa: row.puasa,
+                    sholat: { subuh: row.sholat_subuh, dzuhur: row.sholat_dzuhur, ashar: row.sholat_ashar, maghrib: row.sholat_maghrib, isya: row.sholat_isya },
+                    tahajud: row.tahajud, dhuha: row.dhuha,
+                    juz: row.juz, fullJuz: row.lembar >= LEMBAR_PER_JUZ, lembar: row.lembar
+                };
+            });
+
+            renderAdminMemberRecapDetail(container, member, logs);
+        }
+
+        function renderAdminMemberRecapDetail(container, member, logs) {
+            const isFemale = member.gender === 'female';
+            const prog = getTilawahProgress(logs);
+            const streak = calcStreak(logs);
+
+            const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            let puasa = 0, haidh = 0, sunnah = 0;
+            const haidhDates = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const log = logs[key];
+                if (!log) continue;
+                if (log.puasa === 'ya') puasa++;
+                if (isHaidhDay(log)) { haidh++; haidhDates.push(d); }
+                if (log.tahajud === 'ya') sunnah++;
+                if (log.dhuha === 'ya') sunnah++;
+            }
+
+            let sholatWeek = 0;
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                sholatWeek += getSholatCountForDay(logs[getDateString(d)]);
+            }
+            const sholatPct = Math.round(sholatWeek / 35 * 100);
+
+            const sortedDates = Object.keys(logs).sort((a, b) => b.localeCompare(a)).slice(0, 10);
+            let historyHtml = '<p class="p-3 text-center text-iosGray">Belum ada catatan.</p>';
+            if (sortedDates.length) {
+                historyHtml = sortedDates.map(key => {
+                    const log = logs[key];
+                    const count = getSholatCountForDay(log);
+                    const dObj = new Date(key + 'T00:00:00');
+                    const status = isHaidhDay(log) ? ['HAIDH', 'bg-rose-50 text-rose-600']
+                        : count >= 4 ? ['LENGKAP', 'bg-emerald-50 text-emerald-600']
+                        : count >= 1 ? ['SEBAGIAN', 'bg-amber-50 text-amber-600']
+                        : ['KOSONG', 'bg-slate-100 text-slate-500'];
+                    return `
+                    <div class="py-2 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-slate-800">${HARI_ID[dObj.getDay()]}, ${dObj.getDate()} ${BULAN_ID[dObj.getMonth()]}</p>
+                            <p class="text-[10px] text-iosGray">Sholat ${count}/5 · Juz ${log.juz || 1} · ${log.lembar || 0} lembar</p>
+                        </div>
+                        <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${status[1]}">${status[0]}</span>
+                    </div>`;
+                }).join('');
+            }
+
+            container.innerHTML = `
+                <div class="space-y-3 pt-2">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <div class="flex items-center space-x-2.5">
+                            <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-iosBlue to-purple-600 flex items-center justify-center text-white text-sm">
+                                <i class="fa-solid ${isFemale ? 'fa-venus' : 'fa-mars'}"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">${member.username}</p>
+                                <p class="text-[10px] text-iosGray">${isFemale ? 'Akhwat' : 'Ikhwan'} · ${member.role === 'admin' ? 'Admin' : 'Jamaah'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1 bg-amber-50 border border-amber-200 text-amber-700 px-2 py-1 rounded-full text-[10px] font-bold">
+                            <i class="fa-solid fa-fire text-amber-500"></i> ${streak} Hari
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-slate-50 p-2.5 rounded-ios-sm border border-slate-200/70">
+                            <span class="text-[10px] font-bold text-iosBlue block">Sholat Minggu Ini</span>
+                            <p class="text-base font-extrabold text-slate-900">${sholatWeek}/35</p>
+                            <p class="text-[9px] text-iosGray">${sholatPct}% tepat waktu & berjamaah</p>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-ios-sm border border-slate-200/70">
+                            <span class="text-[10px] font-bold text-iosPurple block">Khatam</span>
+                            <p class="text-base font-extrabold text-slate-900">${prog.juzSelesaiCount}/30 Juz</p>
+                            <p class="text-[9px] text-iosGray">Khatam penuh ${prog.khatamCount}× · ${prog.totalLembar} lembar</p>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-ios-sm border border-slate-200/70">
+                            <span class="text-[10px] font-bold text-iosBlue block">Puasa Bulan Ini</span>
+                            <p class="text-base font-extrabold text-slate-900">${puasa} Hari</p>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-ios-sm border border-slate-200/70">
+                            <span class="text-[10px] font-bold text-amber-600 block">Sunnah Bulan Ini</span>
+                            <p class="text-base font-extrabold text-slate-900">${sunnah} Kali</p>
+                        </div>
+                    </div>
+
+                    ${isFemale ? `
+                    <div class="bg-rose-50 p-2.5 rounded-ios-sm border border-rose-100 space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-rose-700"><i class="fa-solid fa-droplet mr-1"></i> Haidh Bulan Ini</span>
+                            <span class="text-base font-extrabold text-slate-900">${haidh} Hari</span>
+                        </div>
+                        ${haidhDates.length ? `<div class="flex flex-wrap gap-1">${haidhDates.map(d => `<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white text-rose-600 border border-rose-100">${d} ${BULAN_ID[m].substring(0,3)}</span>`).join('')}</div>` : '<p class="text-[9px] text-iosGray">Belum ada catatan haidh bulan ini.</p>'}
+                    </div>` : ''}
+
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-700 mb-1">Grafik Sholat 7 Hari Terakhir</p>
+                        <div id="admin-weekly-chart" class="h-24 grid grid-cols-7 gap-2 items-end"></div>
+                    </div>
+
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-700 mb-1.5">Peta Khatam 30 Juz</p>
+                        <div id="admin-juz-grid" class="grid grid-cols-10 gap-1"></div>
+                        <p id="admin-juz-grid-sub" class="text-[10px] text-iosGray mt-1.5"></p>
+                    </div>
+
+                    <div class="border-t border-slate-100 pt-2">
+                        <p class="text-[11px] font-bold text-slate-700 mb-1">Riwayat Terakhir</p>
+                        <div class="divide-y divide-slate-100 text-xs">${historyHtml}</div>
+                    </div>
+                </div>`;
+
+            renderMiniWeeklyChart('admin-weekly-chart', logs);
+            renderJuzGrid(prog, 'admin-juz-grid');
+        }
+
+        /* ---------- PERINGKAT ---------- */
+        function setRankTimeframe(tf) {
+            rankState.timeframe = tf;
+            $('btn-rank-minggu').className = 'ios-seg-btn ' + (tf === 'minggu' ? 'active-ya' : 'active-tidak');
+            $('btn-rank-bulan').className = 'ios-seg-btn ' + (tf === 'bulan' ? 'active-ya' : 'active-tidak');
+            renderLeaderboard();
+        }
+        function setRankCategory(cat) {
+            rankState.category = cat;
+            ['tahajud', 'dhuha', 'tilawah', 'puasa'].forEach(c => {
+                const p = $('pill-' + c), active = c === cat;
+                p.className = 'rank-pill whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold shadow-sm transition ' +
+                    (active ? 'bg-iosBlue text-white' : 'bg-slate-200 text-slate-600');
+            });
+            renderLeaderboard();
+        }
+        async function renderLeaderboard() {
+            const container = $('leaderboard-container');
+            container.innerHTML = '<p class="p-4 text-center text-iosGray text-xs">Memuat peringkat...</p>';
+
+            const now = new Date();
+            let start;
+            if (rankState.timeframe === 'minggu') {
+                start = new Date(now); start.setDate(now.getDate() - (now.getDay() + 6) % 7);
+            } else start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startStr = getDateString(start);
+
+            let rows = [];
+            if (supabaseClient) {
+                const [pRes, lRes] = await Promise.all([
+                    supabaseClient.from('profiles').select('id, username'),
+                    supabaseClient.from('ibadah_logs')
+                        .select('user_id, puasa, tahajud, dhuha, lembar')
+                        .gte('log_date', startStr)
+                ]);
+                if (pRes.error || lRes.error) {
+                    container.innerHTML = '<p class="p-4 text-center text-rose-500 text-xs">Gagal memuat data peringkat.</p>';
+                    return;
+                }
+                const scores = {};
+                (lRes.data || []).forEach(r => {
+                    if (!scores[r.user_id]) scores[r.user_id] = { tahajud: 0, dhuha: 0, tilawah: 0, puasa: 0 };
+                    if (r.tahajud === 'ya') scores[r.user_id].tahajud++;
+                    if (r.dhuha === 'ya') scores[r.user_id].dhuha++;
+                    if (r.puasa === 'ya') scores[r.user_id].puasa++;
+                    scores[r.user_id].tilawah += (r.lembar || 0) / LEMBAR_PER_JUZ;
+                });
+                rows = (pRes.data || []).map(p => ({ username: p.username, score: scores[p.id] ? scores[p.id][rankState.category] : 0 }));
+            } else {
+                let score = 0;
+                for (const key in dailyLogs) {
+                    if (key < startStr) continue;
+                    const log = dailyLogs[key];
+                    if (rankState.category === 'tahajud' && log.tahajud === 'ya') score++;
+                    if (rankState.category === 'dhuha' && log.dhuha === 'ya') score++;
+                    if (rankState.category === 'puasa' && log.puasa === 'ya') score++;
+                    if (rankState.category === 'tilawah') score += (log.lembar || 0) / LEMBAR_PER_JUZ;
+                }
+                rows = [{ username: currentUserProfile ? currentUserProfile.username : 'Anda (Lokal)', score }];
+            }
+
+            rows.sort((a, b) => b.score - a.score);
+            container.innerHTML = '';
+            if (!rows.length) {
+                container.innerHTML = '<p class="p-4 text-center text-iosGray text-xs">Belum ada data.</p>';
+                return;
+            }
+            rows.forEach((r, idx) => {
+                const medal = ['🥇', '🥈', '🥉'][idx] || (idx + 1);
+                const unit = rankState.category === 'tilawah' ? 'Juz' : 'Kali';
+                const row = document.createElement('div');
+                row.className = 'p-3.5 flex items-center justify-between';
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">${medal}</span>
+                        <span class="font-bold text-slate-800 text-sm">${r.username}</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-iosBlue">${r.score.toFixed(rankState.category === 'tilawah' ? 2 : 0)} ${unit}</span>`;
+                container.appendChild(row);
+            });
+        }
+
+        /* ---------- NAVIGASI & PROFIL UI ---------- */
+        function switchTab(tab) {
+            ['beranda', 'rekap', 'peringkat', 'admin', 'profil'].forEach(t => {
+                $('tab-' + t)?.classList.toggle('active', t === tab);
+                const nav = $('nav-' + t);
+                if (nav) {
+                    nav.classList.toggle('text-iosBlue', t === tab);
+                    nav.classList.toggle('text-iosGray', t !== tab);
+                }
+            });
+            if (tab === 'rekap') renderRekapVisuals();
+            if (tab === 'peringkat') renderLeaderboard();
+            if (tab === 'profil') updateSyncCard();
+            if (tab === 'admin') {
+                if (currentUserProfile?.role === 'admin') {
+                    loadAdminJamaahRecap();
+                    if (!$('admin-member-select').value) loadAdminMemberRecap();
+                } else {
+                    switchTab('profil');
+                    showToast('Hanya admin yang bisa mengakses menu ini!', 'error');
+                }
+            }
+        }
+        function switchRekapSubTab(view) {
+            $('rekap-view-mingguan').classList.toggle('hidden', view !== 'mingguan');
+            $('rekap-view-bulanan').classList.toggle('hidden', view !== 'bulanan');
+            $('btn-rekap-mingguan').className = 'ios-seg-btn ' + (view === 'mingguan' ? 'active-ya' : 'active-tidak');
+            $('btn-rekap-bulanan').className = 'ios-seg-btn ' + (view === 'bulanan' ? 'active-ya' : 'active-tidak');
+            if (view === 'bulanan') renderMonthlyView();
+        }
+
+        function updateGenderUIState() {
+            const isFemale = userProfile.gender === 'female';
+            $('header-gender-icon').className = isFemale ? 'fa-solid fa-venus text-rose-500' : 'fa-solid fa-mars text-blue-500';
+            $('badge-gender-profile').textContent = isFemale ? 'Akhwat (Perempuan)' : 'Ikhwan (Laki-laki)';
+            $('badge-gender-profile').className = 'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (isFemale ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700');
+
+            const legendNote = $('legend-haidh-note');
+            if (legendNote) legendNote.classList.toggle('hidden', !isFemale);
+
+            if ($('account-gender-icon')) {
+                $('account-gender-icon').className = isFemale ? 'fa-solid fa-venus text-rose-500 text-lg' : 'fa-solid fa-mars text-blue-500 text-lg';
+                $('account-gender-desc').innerHTML = isFemale
+                    ? 'Akun <strong>Akhwat</strong>: sholat & puasa punya 3 pilihan — <strong>Ya</strong> (tepat waktu & berjamaah), <strong>Tidak</strong> (sendiri/telat), <strong>Haidh</strong>. Kartu <strong>Monitor Haidh</strong> tersedia di tab Rekap → Bulanan.'
+                    : 'Akun <strong>Ikhwan</strong>: sholat & puasa punya 2 pilihan — <strong>Ya</strong> (tepat waktu & berjamaah) / <strong>Tidak</strong> (sendiri/telat). Fitur haidh disembunyikan.';
+            }
+        }
+
+        function updateAuthProfileUI() {
+            if (currentUserProfile) {
+                $('profile-display-name').textContent = currentUserProfile.username;
+                $('profile-status-text').textContent = 'Terhubung Supabase';
+                $('profile-status-text').className = 'text-emerald-600 font-semibold';
+                $('badge-role-profile').classList.toggle('hidden', currentUserProfile.role !== 'admin');
+                $('auth-button-container').innerHTML =
+                    '<button type="button" onclick="handleLogout()" class="bg-rose-500 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm">Logout</button>';
+                const navAdmin = $('nav-admin');
+                if (currentUserProfile.role === 'admin') { navAdmin.classList.remove('hidden'); navAdmin.classList.add('flex'); }
+            } else {
+                $('profile-display-name').textContent = 'Tamu (Belum Login)';
+                $('profile-status-text').textContent = 'Mode Lokal';
+                $('profile-status-text').className = 'text-amber-600 font-semibold';
+                $('badge-role-profile').classList.add('hidden');
+                $('auth-button-container').innerHTML =
+                    '<button type="button" onclick="openLoginModal()" class="bg-iosBlue text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm">Login</button>';
+                $('nav-admin').classList.add('hidden');
+                $('nav-admin').classList.remove('flex');
+            }
+        }
+
+        /* ---------- ADMIN ---------- */
+        async function handleAdminCreateUser(event) {
+            event.preventDefault();
+            if (!supabaseClient) { showToast('Koneksi Supabase gagal!', 'error'); return; }
+            if (!currentUserProfile || currentUserProfile.role !== 'admin') {
+                showToast('Hanya admin yang bisa menambah jamaah!', 'error'); return;
+            }
+            const username = $('admin-new-username').value.trim().toLowerCase();
+            const gender = $('admin-new-gender').value;
+            const role = $('admin-new-role').value;
+            const btn = $('btn-admin-submit-user');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Membuat...';
+
+            const { error } = await supabaseClient.auth.signUp({
+                email: username + DUMMY_EMAIL_DOMAIN,
+                password: '1234',
+                options: { data: { role, gender } }
+            });
+
+            if (error) {
+                showToast('Gagal: ' + error.message, 'error');
+            } else {
+                if (adminPasswordInMemory) {
+                    await supabaseClient.auth.signOut();
+                    await supabaseClient.auth.signInWithPassword({
+                        email: currentUserProfile.username + DUMMY_EMAIL_DOMAIN,
+                        password: adminPasswordInMemory
+                    });
+                }
+                showToast(`Akun "${username}" dibuat! Mode: ${gender === 'female' ? 'Akhwat' : 'Ikhwan'} · Password default: 1234`);
+                $('admin-new-username').value = '';
+                loadAdminJamaahRecap();
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i><span>Buat Akun Jamaah</span>';
+        }
+
+        async function loadAdminJamaahRecap() {
+            const tbody = $('admin-jamaah-table-body');
+            if (!supabaseClient) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-iosGray">Supabase belum terhubung.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-iosGray">Memuat...</td></tr>';
+            const { data, error } = await supabaseClient.from('profiles').select('*').order('created_at');
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-rose-500">${error.message}</td></tr>`;
+                return;
+            }
+            if (!data || !data.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-iosGray">Belum ada jamaah terdaftar.</td></tr>';
+                adminMembersCache = [];
+                return;
+            }
+            adminMembersCache = data;
+
+            const sel = $('admin-member-select');
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="">— Pilih jamaah —</option>';
+            data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.username} (${p.gender === 'female' ? 'Akhwat' : 'Ikhwan'}${p.role === 'admin' ? ' · Admin' : ''})`;
+                sel.appendChild(opt);
+            });
+            if (currentVal && data.some(p => p.id === currentVal)) sel.value = currentVal;
+
+            tbody.innerHTML = '';
+            data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2 font-bold text-slate-800">${p.username}</td>
+                    <td class="p-2">${p.gender === 'female' ? 'Akhwat' : 'Ikhwan'}</td>
+                    <td class="p-2">${p.role}</td>
+                    <td class="p-2 text-center">
+                        ${p.is_first_login
+                            ? '<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Default</span>'
+                            : '<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Aktif</span>'}
+                    </td>
+                    <td class="p-2 text-center">
+                        <button type="button" onclick="selectAdminMember('${p.id}')" class="text-[9px] font-bold px-2 py-1 rounded-lg bg-purple-50 text-iosPurple border border-purple-100 hover:bg-purple-100 transition">
+                            <i class="fa-solid fa-chart-line mr-0.5"></i> Rekap
+                        </button>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* ---------- INIT APLIKASI ---------- */
+        window.addEventListener('DOMContentLoaded', async () => {
+            loadUserProfileLocal();
+            populateJuzSelectOptions();
+            updateDateHeader();
+            updateGenderUIState();
+            updateAuthProfileUI();
+            updateThemeUI();
+            updateRulesBadge();
+            loadLogsFromStorageLocal();
+            renderFormUI();
+            renderRekapVisuals();
+            updateStreakUI();
+            updateSyncCard();
+
+            if (initSupabaseFromStorage()) {
+                await enforceLoginGate();
+            } else {
+                openModal('modal-config');
+                showToast('Koneksi Supabase gagal. Periksa konfigurasi.', 'error');
+            }
+
+            setInterval(() => {
+                checkAutoSync(true);
+            }, 30000);
+        });
+
+        function loadUserProfileLocal() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_USER));
+                if (saved && saved.gender) userProfile.gender = saved.gender;
+            } catch (e) {}
+        }
+    </script>
+</body>
+</html>
