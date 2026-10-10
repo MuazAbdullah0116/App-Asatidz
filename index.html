@@ -522,7 +522,7 @@
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Username Jamaah</label>
                         <input type="text" id="admin-new-username" required placeholder="contoh: ahmad12" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-iosBlue">
-                        <p class="text-[10px] text-iosGray mt-1">Password default otomatis set ke: <code class="bg-slate-100 px-1 py-0.5 rounded text-slate-700 font-bold">1234</code></p>
+                        <p class="text-[10px] text-iosGray mt-1">Password default otomatis set ke: <code class="bg-slate-100 px-1 py-0.5 rounded text-slate-700 font-bold">123456</code></p>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
@@ -708,7 +708,7 @@
                     </div>
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Password Admin</label>
-                        <input type="text" id="setup-password" required value="1234" placeholder="Password awal" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosPurple">
+                        <input type="text" id="setup-password" required value="123456" placeholder="Password awal" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-iosPurple">
                         <p class="text-[10px] text-iosGray mt-1">Anda akan diminta mengganti password ini saat login pertama.</p>
                     </div>
                     <div>
@@ -2316,7 +2316,7 @@
 
             const { error } = await supabaseClient.auth.signUp({
                 email: username + DUMMY_EMAIL_DOMAIN,
-                password: '1234',
+                password: '123456',
                 options: { data: { role, gender } }
             });
 
@@ -2330,7 +2330,7 @@
                         password: adminPasswordInMemory
                     });
                 }
-                showToast(`Akun "${username}" dibuat! Mode: ${gender === 'female' ? 'Akhwat' : 'Ikhwan'} · Password default: 1234`);
+                showToast(`Akun "${username}" dibuat! Mode: ${gender === 'female' ? 'Akhwat' : 'Ikhwan'} · Password default: 123456`);
                 $('admin-new-username').value = '';
                 loadAdminJamaahRecap();
             }
